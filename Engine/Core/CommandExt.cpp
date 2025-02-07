@@ -2776,30 +2776,43 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() {
-	// Se non c'è un dialogo attivo, non fare nulla.
+	// Se non c'è un dialogo attivo, non serve fare nulla.
 	if (!dlgCtrl.dialogueProcessingState.active) {
 		return RET_CONTINUE;
 	}
 
-	// Applica le modifiche grafiche pendenti (sprite, animazioni, dirty rect, ecc.).
+	// Salva temporaneamente lo stato del log, in modo da non modificarlo.
+	auto savedDialogueLabelIndex = script_h.logState.currDialogueLabelIndex;
+	auto savedUnreadDialogue     = script_h.logState.unreadDialogue;
+
+	// Preleva il testo attualmente visualizzato, già memorizzato in dataPart
+	std::string currentDialogueText = dlgCtrl.dataPart;
+
+	// Esegui il commit degli aggiornamenti grafici pendenti (sprite, animazioni, dirty rect, ecc.)
 	commitVisualState();
 
-	// Forza il ricalcolo del layout del dialogo (così che eventuali nuove impostazioni,
-	// ad esempio posizione o dimensioni, vengano applicate).
-	dlgCtrl.dialogueProcessingState.layoutDone = false;
-	dlgCtrl.layoutDialogue();
+	// Reinietta il testo corrente per forzare il ricalcolo grafico.
+	// Notare che qui NON si legge nulla dallo script, perciò la stessa riga viene "ri-eseguita"
+	dlgCtrl.feedDialogueTextData(currentDialogueText.c_str());
 
-	// Se si usa una finestra di testo dinamica, basta eseguire un flush
-	// per aggiornare immediatamente l'area interessata.
-	if (wndCtrl.usingDynamicTextWindow) {
-		flush(refresh_window_text_mode);
-	} else {
-		// Per una finestra di testo statica, forziamo l'uscita dalla modalità testo
-		// e la successiva re-entrata, così da far ricalcolare e ridisegnare il testo
-		// con le nuove impostazioni grafiche.
-		leaveTextDisplayMode(true, true); // forza l'uscita con effetto
-		enterTextDisplayMode();
+	// Se il layout non è stato ancora calcolato (o va ricalcolato per eventuali nuove impostazioni),
+	// lo forziamo.
+	if (!dlgCtrl.dialogueProcessingState.layoutDone) {
+		dlgCtrl.layoutDialogue();
 	}
+
+	// Se non siamo già in modalità di visualizzazione testuale, entriamo in tale modalità
+	// (questo forza il ridisegno del riquadro del dialogo).
+	if (!page_enter_status) {
+		refresh_window_text_mode = REFRESH_NORMAL_MODE | REFRESH_WINDOW_MODE | REFRESH_TEXT_MODE;
+		enterTextDisplayMode();
+		page_enter_status = 1;
+	}
+	dlgCtrl.dialogueProcessingState.readyToRun = true;
+
+	// Ripristina lo stato del log per evitare che le modifiche grafiche interferiscano con esso.
+	script_h.logState.currDialogueLabelIndex = savedDialogueLabelIndex;
+	script_h.logState.unreadDialogue         = savedUnreadDialogue;
 
 	return RET_CONTINUE;
 }
