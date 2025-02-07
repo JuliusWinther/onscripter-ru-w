@@ -315,6 +315,7 @@ public:
 	int dialogueContinueCommand();
 	int dialogueNameCommand();
 	int dialogueCommand();
+	int reloadDialogue(); // W_TEMP2
 	int dialogueAddEndsCommand();
 	int debugStrCommand();
 	int customCursorCommand();
@@ -459,7 +460,7 @@ public:
 	int gettagCommand();
 	int gettabCommand();
 	int getspsizeCommand();
-	int getscrollposCommand(); // W_TEMP
+	int getscrollposCommand(); // W_CUSTOM
 	int getspmodeCommand();
 	int getskipoffCommand();
 	int getsevolCommand();
