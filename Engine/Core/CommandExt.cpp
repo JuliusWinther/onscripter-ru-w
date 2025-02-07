@@ -2776,27 +2776,29 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() {
-	// Se non c'è un dialogo attivo, non c'è niente da aggiornare graficamente.
+	// Se non c'è un dialogo attivo, non fare nulla.
 	if (!dlgCtrl.dialogueProcessingState.active) {
 		return RET_CONTINUE;
 	}
 
-	// Applica eventuali modifiche visive pendenti (sprite, animazioni, etc.)
+	// Applica le modifiche grafiche pendenti (sprite, animazioni, dirty rect, ecc.).
 	commitVisualState();
 
-	// Forza la ricomposizione del layout del dialogo.
-	// In questo modo, se ad esempio le impostazioni (come posizione o dimensione) sono cambiate,
-	// il layout verrà ricalcolato.
+	// Forza il ricalcolo del layout del dialogo (così che eventuali nuove impostazioni,
+	// ad esempio posizione o dimensioni, vengano applicate).
 	dlgCtrl.dialogueProcessingState.layoutDone = false;
 	dlgCtrl.layoutDialogue();
 
-	// Rientra in "text display mode" per forzare il ridisegno del riquadro del dialogo.
-	enterTextDisplayMode();
-
-	// Se viene usata una finestra di testo dinamica, assicuriamoci di aggiornare
-	// anche l'area interessata.
+	// Se si usa una finestra di testo dinamica, basta eseguire un flush
+	// per aggiornare immediatamente l'area interessata.
 	if (wndCtrl.usingDynamicTextWindow) {
 		flush(refresh_window_text_mode);
+	} else {
+		// Per una finestra di testo statica, forziamo l'uscita dalla modalità testo
+		// e la successiva re-entrata, così da far ricalcolare e ridisegnare il testo
+		// con le nuove impostazioni grafiche.
+		leaveTextDisplayMode(true, true); // forza l'uscita con effetto
+		enterTextDisplayMode();
 	}
 
 	return RET_CONTINUE;
