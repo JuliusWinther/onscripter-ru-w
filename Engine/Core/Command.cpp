@@ -1463,7 +1463,7 @@ int ONScripter::mp3Command() {
 
 int ONScripter::movieCommand() {
 	bool loadNew = script_h.isName("video");
-	if ((script_h.isName("stopvideo") || script_h.isName("pausevideo") || script_h.isName("resumevideo")) || loadNew) { // W_TEMP
+	if ((script_h.isName("stopvideo") || script_h.isName("pausevideo") || script_h.isName("resumevideo")) || loadNew) { // W_CUSTOM
 		if (video_layer < 0) {
 			errorAndCont("no video layer found");
 			// Cleanup
@@ -1475,10 +1475,10 @@ int ONScripter::movieCommand() {
 		// TODO: request last frame here
 		auto layer = getLayer<MediaLayer>(video_layer);
 
-		if (script_h.isName("pausevideo")) { // W_TEMP
+		if (script_h.isName("pausevideo")) { // W_CUSTOM
 			layer->videoPause();
 			return RET_CONTINUE;
-		} else if (script_h.isName("resumevideo")) { // W_TEMP
+		} else if (script_h.isName("resumevideo")) { // W_CUSTOM
 			layer->videoResume();
 			return RET_CONTINUE;
 		}

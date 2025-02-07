@@ -34,8 +34,8 @@ public:
 	bool loadVideo(std::string &filename, unsigned audioStream = 1, unsigned subtitleStream = 0);
 	bool loadPresentation(bool alphaMasked, bool loop, std::string &sub_file);
 	void startProcessing();
-	void videoPause();  // W_TEMP
-	void videoResume(); // W_TEMP
+	void videoPause();  // W_CUSTOM
+	void videoResume(); // W_CUSTOM
 	bool update(bool /*old*/) override;
 	void refresh(GPU_Target *target, GPU_Rect &clip, float x, float y, bool centre_coordinates, int rm, float scalex = 1.0, float scaley = 1.0) override;
 	BlendModeId blendingMode(int rm) override {
@@ -53,7 +53,7 @@ public:
 	bool stopPlayback(FinishMode mode = FinishMode::Normal);
 
 private:
-	bool isPaused = false; // W_TEMP
+	bool isPaused = false; // W_CUSTOM
 	// Frame representation
 	float wFactor{1}, hFactor{1};   // required multipliers to match the scaled area
 	SDL_Rect scaleRect{0, 0, 0, 0}; // scaled video frame size

@@ -179,13 +179,13 @@ bool MediaLayer::ensurePlanesImgs(AVPixelFormat f, size_t n, float w, float h) {
 	return true;
 }
 
-void MediaLayer::videoPause() { // W_TEMP
+void MediaLayer::videoPause() { // W_CUSTOM
 	if (!isPaused) {
 		isPaused = true;
 	}
 }
 
-void MediaLayer::videoResume() { // W_TEMP
+void MediaLayer::videoResume() { // W_CUSTOM
 	if (isPaused) {
 		isPaused = false;
 	}
@@ -276,7 +276,7 @@ bool MediaLayer::update(bool old) {
 			media.giveImageBack(thisVideoFrame->surface);
 		}
 	}
-	if (isPaused) { // W_TEMP
+	if (isPaused) { // W_CUSTOM
 		framesToAdvance = 0;
 		return true;
 	}

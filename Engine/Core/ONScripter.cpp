@@ -455,7 +455,7 @@ static std::unordered_map<HashedString, CommandFunc> func_lut{
     {"d_name", &ONScripter::dialogueNameCommand},         // ons-ru
     {"d2", &ONScripter::dialogueCommand},                 // ons-ru
     {"d", &ONScripter::dialogueCommand},                  // ons-ru
-    {"d_repaint", &ONScripter::reloadDialogue},           // W_TEMP2
+    {"d_repaint", &ONScripter::reloadDialogueCommand},    // W_TEMP2
     {"csp2", &ONScripter::cspCommand},
     {"csp", &ONScripter::cspCommand},
     {"cselgoto", &ONScripter::cselgotoCommand},

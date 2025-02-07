@@ -2775,19 +2775,20 @@ int ONScripter::dialogueCommand() {
 	return textCommand();
 }
 
-int ONScripter::reloadDialogue() { // W_TEMP2
-	// Eseguiamo questo comando solo se esiste un dialogo attivo
+int ONScripter::reloadDialogueCommand() {
+	// Se non c'è un dialogo attivo, non facciamo nulla.
 	if (!dlgCtrl.dialogueProcessingState.active)
 		return RET_CONTINUE;
 
-	// Applica le eventuali nuove impostazioni grafiche (sprite, layer, dirty rect, etc.)
+	// Forza il ricalcolo del layout:
+	dlgCtrl.dialogueProcessingState.layoutDone = false;
 	commitVisualState();
-
-	// Ricalcola il layout del dialogo (ad es. posizione, dimensioni, ecc.)
 	dlgCtrl.layoutDialogue();
 
-	// Forza l'aggiornamento della modalità di visualizzazione testuale:
-	// Questi flag e la chiamata a enterTextDisplayMode() aggiornano la finestra grafica
+	// Resetta lo stato della finestra testo in modo da forzare l'aggiornamento grafico.
+	// (page_enter_status viene usato in textCommand() per evitare di ripetere l'enterTextDisplayMode;
+	// resettiamolo per forzare la reimpostazione della finestra.)
+	page_enter_status        = 0;
 	refresh_window_text_mode = REFRESH_NORMAL_MODE | REFRESH_WINDOW_MODE | REFRESH_TEXT_MODE;
 	enterTextDisplayMode();
 
