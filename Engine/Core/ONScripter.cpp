@@ -80,8 +80,8 @@ static std::unordered_map<HashedString, CommandFunc> func_lut{
     {"ssa_font", &ONScripter::subtitleFontCommand},
     {"stopwatch", &ONScripter::stopwatchCommand},
     {"stopvideo", &ONScripter::movieCommand},
-    {"pausevideo", &ONScripter::movieCommand},  // W_TEMP
-    {"resumevideo", &ONScripter::movieCommand}, // W_TEMP
+    {"pausevideo", &ONScripter::movieCommand},  // W_CUSTOM
+    {"resumevideo", &ONScripter::movieCommand}, // W_CUSTOM
     {"setlog", &ONScripter::setLogCommand},
     {"aspt2", &ONScripter::spritePropertyCommand},
     {"aspt", &ONScripter::spritePropertyCommand},
@@ -390,7 +390,7 @@ static std::unordered_map<HashedString, CommandFunc> func_lut{
     {"gettab", &ONScripter::gettabCommand},
     {"getspsize2", &ONScripter::getspsizeCommand},
     {"getspsize", &ONScripter::getspsizeCommand},
-    {"getscrollpos", &ONScripter::getscrollposCommand}, // W_TEMP
+    {"getscrollpos", &ONScripter::getscrollposCommand}, // W_CUSTOM
     {"getspmode", &ONScripter::getspmodeCommand},
     {"getskipoff", &ONScripter::getskipoffCommand},
     {"getsevol", &ONScripter::getsevolCommand},
@@ -455,6 +455,7 @@ static std::unordered_map<HashedString, CommandFunc> func_lut{
     {"d_name", &ONScripter::dialogueNameCommand},         // ons-ru
     {"d2", &ONScripter::dialogueCommand},                 // ons-ru
     {"d", &ONScripter::dialogueCommand},                  // ons-ru
+    {"d_repaint", &ONScripter::reloadDialogue},           // W_TEMP2
     {"csp2", &ONScripter::cspCommand},
     {"csp", &ONScripter::cspCommand},
     {"cselgoto", &ONScripter::cselgotoCommand},

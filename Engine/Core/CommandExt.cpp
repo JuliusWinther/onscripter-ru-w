@@ -2775,6 +2775,25 @@ int ONScripter::dialogueCommand() {
 	return textCommand();
 }
 
+int ONScripter::reloadDialogue() { // W_TEMP2
+	// Eseguiamo questo comando solo se esiste un dialogo attivo
+	if (!dlgCtrl.dialogueProcessingState.active)
+		return RET_CONTINUE;
+
+	// Applica le eventuali nuove impostazioni grafiche (sprite, layer, dirty rect, etc.)
+	commitVisualState();
+
+	// Ricalcola il layout del dialogo (ad es. posizione, dimensioni, ecc.)
+	dlgCtrl.layoutDialogue();
+
+	// Forza l'aggiornamento della modalità di visualizzazione testuale:
+	// Questi flag e la chiamata a enterTextDisplayMode() aggiornano la finestra grafica
+	refresh_window_text_mode = REFRESH_NORMAL_MODE | REFRESH_WINDOW_MODE | REFRESH_TEXT_MODE;
+	enterTextDisplayMode();
+
+	return RET_CONTINUE;
+}
+
 int ONScripter::dialogueNameCommand() {
 	if (script_h.isName("d_name_refresh")) {
 		dlgCtrl.nameLayouted = false;
