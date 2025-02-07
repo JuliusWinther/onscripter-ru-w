@@ -2780,30 +2780,24 @@ int ONScripter::reloadDialogueCommand() {
 	if (!dlgCtrl.dialogueProcessingState.active)
 		return RET_CONTINUE;
 
-	// Salviamo il testo corrente.
-	std::string currentText = dlgCtrl.dataPart;
-
-	// Forziamo il reset degli stati grafici.
-	// 1. Committiamo lo stato visivo (sprite, layer, dirty rect, ecc.)
+	// 1. Commit dello stato visivo e ricalcolo del layout,
+	//    in modo che eventuali nuove impostazioni (es. posizione) siano prese in considerazione.
 	commitVisualState();
-
-	// 2. Reset dei flag per forzare un nuovo layout e l'ingresso in modalità testo.
 	dlgCtrl.dialogueProcessingState.layoutDone = false;
-	page_enter_status                          = 0;
-
-	// 3. (Opzionale) Puliamo la superficie del dialogo: se il testo è già renderizzato,
-	//    azzeriamo il buffer del testo.
-	dlgCtrl.textPart = "";
-
-	// 4. Ricarichiamo il testo attuale: questo aggiorna dataPart (eventualmente aggiungendo
-	//    la stringa di stile) e chiama setDialogueActive().
-	dlgCtrl.feedDialogueTextData(currentText.c_str());
-
-	// 5. Ricalcoliamo il layout del dialogo, così da applicare la nuova posizione e impostazioni grafiche.
 	dlgCtrl.layoutDialogue();
 
-	// 6. Forziamo l'aggiornamento della modalità testo:
-	refresh_window_text_mode = REFRESH_NORMAL_MODE | REFRESH_WINDOW_MODE | REFRESH_TEXT_MODE;
+	// 2. Se usiamo una finestra testo dinamica, forziamo l'uscita dalla modalità testo.
+	//    In questo modo la GPU image (e i relativi dirty rect) verranno resettati.
+	leaveTextDisplayMode(true, true);
+	before_dirty_rect_hud.clear();
+	dirty_rect_hud.clear();
+
+	// 3. Forziamo il reset del flag che indica che siamo in modalità testo,
+	//    in modo che la chiamata successiva a enterTextDisplayMode() esegua un'inizializzazione completa.
+	display_mode &= ~DISPLAY_MODE_TEXT; // Rimuovo il flag TEXT
+
+	// 4. Rientriamo in modalità testo: questa chiamata
+	//    (visto il flag resettato) ricostruirà la finestra testo usando le nuove impostazioni.
 	enterTextDisplayMode();
 
 	return RET_CONTINUE;
