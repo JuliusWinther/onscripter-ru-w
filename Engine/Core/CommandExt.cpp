@@ -2776,29 +2776,28 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() {
-	// Se il dialogo non è attivo, non fare nulla.
-	if (!dlgCtrl.dialogueProcessingState.active)
+	// Se non c'è un dialogo attivo, non c'è niente da aggiornare graficamente.
+	if (!dlgCtrl.dialogueProcessingState.active) {
 		return RET_CONTINUE;
+	}
 
-	// 1. Commit dello stato visivo e ricalcolo del layout,
-	//    in modo che eventuali nuove impostazioni (es. posizione) siano prese in considerazione.
+	// Applica eventuali modifiche visive pendenti (sprite, animazioni, etc.)
 	commitVisualState();
+
+	// Forza la ricomposizione del layout del dialogo.
+	// In questo modo, se ad esempio le impostazioni (come posizione o dimensione) sono cambiate,
+	// il layout verrà ricalcolato.
 	dlgCtrl.dialogueProcessingState.layoutDone = false;
 	dlgCtrl.layoutDialogue();
 
-	// 2. Se usiamo una finestra testo dinamica, forziamo l'uscita dalla modalità testo.
-	//    In questo modo la GPU image (e i relativi dirty rect) verranno resettati.
-	leaveTextDisplayMode(true, true);
-	before_dirty_rect_hud.clear();
-	dirty_rect_hud.clear();
-
-	// 3. Forziamo il reset del flag che indica che siamo in modalità testo,
-	//    in modo che la chiamata successiva a enterTextDisplayMode() esegua un'inizializzazione completa.
-	display_mode &= ~DISPLAY_MODE_TEXT; // Rimuovo il flag TEXT
-
-	// 4. Rientriamo in modalità testo: questa chiamata
-	//    (visto il flag resettato) ricostruirà la finestra testo usando le nuove impostazioni.
+	// Rientra in "text display mode" per forzare il ridisegno del riquadro del dialogo.
 	enterTextDisplayMode();
+
+	// Se viene usata una finestra di testo dinamica, assicuriamoci di aggiornare
+	// anche l'area interessata.
+	if (wndCtrl.usingDynamicTextWindow) {
+		flush(refresh_window_text_mode);
+	}
 
 	return RET_CONTINUE;
 }
