@@ -2776,45 +2776,40 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() {
-	// Se non c'è un dialogo attivo, non serve fare nulla.
+	// Se non c'è un dialogo attivo, non abbiamo niente da aggiornare.
 	if (!dlgCtrl.dialogueProcessingState.active) {
 		return RET_CONTINUE;
 	}
 
-	// Salva temporaneamente lo stato del log, in modo da non modificarlo.
+	// Salva lo stato del log, così da non modificarlo:
 	auto savedDialogueLabelIndex = script_h.logState.currDialogueLabelIndex;
 	auto savedUnreadDialogue     = script_h.logState.unreadDialogue;
 
-	// Preleva il testo attualmente visualizzato, già memorizzato in dataPart
-	std::string currentDialogueText = dlgCtrl.dataPart;
+	// Salva la posizione dello script dove è iniziato il dialogo corrente.
+	auto savedDialoguePos = dlgCtrl.dialogue_pos;
 
-	// Esegui il commit degli aggiornamenti grafici pendenti (sprite, animazioni, dirty rect, ecc.)
-	commitVisualState();
+	// Per far sì che dialogueCommand rilegga la stessa riga (ossia entri
+	// nel ramo che esegue commitVisualState() e feedDialogueTextData()),
+	// impostiamo temporaneamente il flag di attivazione a "falso".
+	bool wasActive                         = dlgCtrl.dialogueProcessingState.active;
+	dlgCtrl.dialogueProcessingState.active = false;
 
-	// Reinietta il testo corrente per forzare il ricalcolo grafico.
-	// Notare che qui NON si legge nulla dallo script, perciò la stessa riga viene "ri-eseguita"
-	dlgCtrl.feedDialogueTextData(currentDialogueText.c_str());
+	// Ripristina il puntatore dello script alla posizione salvata,
+	// in modo che la lettura con readToEol() restituisca esattamente la stessa riga.
+	script_h.setCurrent(savedDialoguePos); // <-- Si assume l'esistenza di questo metodo.
 
-	// Se il layout non è stato ancora calcolato (o va ricalcolato per eventuali nuove impostazioni),
-	// lo forziamo.
-	if (!dlgCtrl.dialogueProcessingState.layoutDone) {
-		dlgCtrl.layoutDialogue();
-	}
+	// Esegui dialogueCommand: con dialogueProcessingState == false verrà riletto
+	// il testo corrente e verrà aggiornato graficamente.
+	int ret = dialogueCommand();
 
-	// Se non siamo già in modalità di visualizzazione testuale, entriamo in tale modalità
-	// (questo forza il ridisegno del riquadro del dialogo).
-	if (!page_enter_status) {
-		refresh_window_text_mode = REFRESH_NORMAL_MODE | REFRESH_WINDOW_MODE | REFRESH_TEXT_MODE;
-		enterTextDisplayMode();
-		page_enter_status = 1;
-	}
-	dlgCtrl.dialogueProcessingState.readyToRun = true;
+	// Ripristina il flag di attivazione del dialogo.
+	dlgCtrl.dialogueProcessingState.active = wasActive;
 
-	// Ripristina lo stato del log per evitare che le modifiche grafiche interferiscano con esso.
+	// Ripristina lo stato del log, così da non alterarlo.
 	script_h.logState.currDialogueLabelIndex = savedDialogueLabelIndex;
 	script_h.logState.unreadDialogue         = savedUnreadDialogue;
 
-	return RET_CONTINUE;
+	return ret;
 }
 
 int ONScripter::dialogueNameCommand() {
