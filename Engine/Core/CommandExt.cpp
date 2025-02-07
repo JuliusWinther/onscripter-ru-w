@@ -2776,19 +2776,33 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() {
-	// Se non c'è un dialogo attivo, non facciamo nulla.
+	// Se il dialogo non è attivo, non fare nulla.
 	if (!dlgCtrl.dialogueProcessingState.active)
 		return RET_CONTINUE;
 
-	// Forza il ricalcolo del layout:
-	dlgCtrl.dialogueProcessingState.layoutDone = false;
+	// Salviamo il testo corrente.
+	std::string currentText = dlgCtrl.dataPart;
+
+	// Forziamo il reset degli stati grafici.
+	// 1. Committiamo lo stato visivo (sprite, layer, dirty rect, ecc.)
 	commitVisualState();
+
+	// 2. Reset dei flag per forzare un nuovo layout e l'ingresso in modalità testo.
+	dlgCtrl.dialogueProcessingState.layoutDone = false;
+	page_enter_status                          = 0;
+
+	// 3. (Opzionale) Puliamo la superficie del dialogo: se il testo è già renderizzato,
+	//    azzeriamo il buffer del testo.
+	dlgCtrl.textPart = "";
+
+	// 4. Ricarichiamo il testo attuale: questo aggiorna dataPart (eventualmente aggiungendo
+	//    la stringa di stile) e chiama setDialogueActive().
+	dlgCtrl.feedDialogueTextData(currentText.c_str());
+
+	// 5. Ricalcoliamo il layout del dialogo, così da applicare la nuova posizione e impostazioni grafiche.
 	dlgCtrl.layoutDialogue();
 
-	// Resetta lo stato della finestra testo in modo da forzare l'aggiornamento grafico.
-	// (page_enter_status viene usato in textCommand() per evitare di ripetere l'enterTextDisplayMode;
-	// resettiamolo per forzare la reimpostazione della finestra.)
-	page_enter_status        = 0;
+	// 6. Forziamo l'aggiornamento della modalità testo:
 	refresh_window_text_mode = REFRESH_NORMAL_MODE | REFRESH_WINDOW_MODE | REFRESH_TEXT_MODE;
 	enterTextDisplayMode();
 
