@@ -2776,37 +2776,36 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// Se non c’è un dialogo attivo, esci subito: non c’è nulla da ridisegnare.
-	if (!dlgCtrl.dialogueProcessingState.active) {
+	// Se non c'è un dialogo attivo, non c'è nulla da ricaricare.
+	if (!dlgCtrl.dialogueProcessingState.active)
 		return RET_CONTINUE;
-	}
 
-	// Salviamo il testo attuale, così possiamo “re-iniettarlo”
-	// e forzare l’applicazione di nuove impostazioni (posizione, stile, ecc.).
-	std::string oldData = dlgCtrl.dataPart;
+	// 1. Applica eventuali aggiornamenti grafici pendenti:
+	commitVisualState();
 
-	// Re-impostiamo il testo. feedDialogueTextData() si occuperà di
-	// concatenare eventuale "dialogue-style" se definito in ons.ons_cfg_options.
-	dlgCtrl.feedDialogueTextData(oldData.c_str());
-
-	// Forziamo il ricalcolo del layout (se era già fatto, lo azzeriamo).
+	// 2. Forza il ricalcolo del layout del dialogo:
+	//    (Impostando layoutDone a false si garantisce che dlgCtrl.layoutDialogue()
+	//     ricalcoli le posizioni/estensioni in base alle impostazioni correnti.)
 	dlgCtrl.dialogueProcessingState.layoutDone = false;
 	dlgCtrl.layoutDialogue();
 
-	// Assicuriamoci che lo stato visivo (sprite, ecc.) sia committato;
-	// questo è simile a quanto avviene in dialogueCommand() prima di mostrare testo.
-	commitVisualState();
-
-	// Se non siamo ancora in “text display mode”, entriamoci:
-	if (!page_enter_status) {
-		refresh_window_text_mode = REFRESH_NORMAL_MODE | REFRESH_WINDOW_MODE | REFRESH_TEXT_MODE;
+	// 3. Aggiorna la visualizzazione del testo.
+	//    Se siamo già in modalità testo, per finestre dinamiche viene effettuato un flush;
+	//    altrimenti, si entra in modalità testo.
+	if (display_mode & DISPLAY_MODE_TEXT) {
+		if (wndCtrl.usingDynamicTextWindow) {
+			flush(refresh_window_text_mode);
+		} else {
+			// Per finestre statiche si richiama comunque enterTextDisplayMode()
+			// per forzare il ridisegno.
+			enterTextDisplayMode();
+		}
+	} else {
 		enterTextDisplayMode();
-		page_enter_status = 1;
 	}
 
-	// Forziamo un refresh immediato, così da vedere l’effetto subito.
-	flush(refresh_window_text_mode);
-
+	// La funzione non tocca alcun dato relativo al log o allo script,
+	// agendo esclusivamente sul rendering grafico.
 	return RET_CONTINUE;
 }
 
