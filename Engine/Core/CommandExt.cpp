@@ -2776,49 +2776,37 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// Se non c'è un dialogo attivo, non facciamo nulla.
+	// Se non c’è un dialogo attivo, esci subito: non c’è nulla da ridisegnare.
 	if (!dlgCtrl.dialogueProcessingState.active) {
 		return RET_CONTINUE;
 	}
 
-	// 1) Assicuriamoci che lo stato visivo (sprite, effetti, ecc.) sia “committato”.
-	//    Questo equivale alla parte iniziale di dialogueCommand() in cui si fa:
-	//      while (effect_current) waitEvent(0);
-	//    e poi si chiama commitVisualState().
-	//    Qui, invece di attendere (o gestire gli effetti), ci limitiamo a chiamare
-	//    direttamente commitVisualState() se crediamo che non ci siano effetti pendenti.
+	// Salviamo il testo attuale, così possiamo “re-iniettarlo”
+	// e forzare l’applicazione di nuove impostazioni (posizione, stile, ecc.).
+	std::string oldData = dlgCtrl.dataPart;
+
+	// Re-impostiamo il testo. feedDialogueTextData() si occuperà di
+	// concatenare eventuale "dialogue-style" se definito in ons.ons_cfg_options.
+	dlgCtrl.feedDialogueTextData(oldData.c_str());
+
+	// Forziamo il ricalcolo del layout (se era già fatto, lo azzeriamo).
+	dlgCtrl.dialogueProcessingState.layoutDone = false;
+	dlgCtrl.layoutDialogue();
+
+	// Assicuriamoci che lo stato visivo (sprite, ecc.) sia committato;
+	// questo è simile a quanto avviene in dialogueCommand() prima di mostrare testo.
 	commitVisualState();
 
-	// 2) Assicuriamoci che il layout del testo sia pronto:
-	//    in textCommand() si chiama dlgCtrl.layoutDialogue() se non l'abbiamo ancora fatto.
-	if (!dlgCtrl.dialogueProcessingState.layoutDone) {
-		dlgCtrl.layoutDialogue();
-	}
-
-	// 3) Se non siamo ancora in “text display mode” (cioè con la finestra di dialogo sullo schermo),
-	//    entriamoci. Questo è esattamente ciò che textCommand() fa con:
-	//
-	//      if (!page_enter_status) {
-	//          refresh_window_text_mode = ...
-	//          enterTextDisplayMode();
-	//          page_enter_status = 1;
-	//      }
-	//
-	//    Così facendo, la grafica della finestra di testo viene attivata se non lo era già.
+	// Se non siamo ancora in “text display mode”, entriamoci:
 	if (!page_enter_status) {
 		refresh_window_text_mode = REFRESH_NORMAL_MODE | REFRESH_WINDOW_MODE | REFRESH_TEXT_MODE;
 		enterTextDisplayMode();
 		page_enter_status = 1;
 	}
 
-	// 4) Eventuale forzatura di refresh/flush, se si desidera subito un disegno “forzato”.
-	//    Spesso ONScripter effettua il rendering su loop propri; questa chiamata
-	//    garantisce che venga processato immediatamente.
+	// Forziamo un refresh immediato, così da vedere l’effetto subito.
 	flush(refresh_window_text_mode);
 
-	// A questo punto, abbiamo ridisegnato solo la parte grafica del dialogo.
-	// Non abbiamo riletto script, non abbiamo aggiunto nulla al log,
-	// non abbiamo manipolato buffer o simili.
 	return RET_CONTINUE;
 }
 
