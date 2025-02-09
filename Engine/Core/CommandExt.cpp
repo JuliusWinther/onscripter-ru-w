@@ -2775,48 +2775,50 @@ int ONScripter::dialogueCommand() {
 	return textCommand();
 }
 
-int ONScripter::reloadDialogueCommand() {
-	// Se non c'è un dialogo attivo, non c'è niente da aggiornare.
+int ONScripter::reloadDialogueCommand() { // W_TEMP2
+	// Se non c'è un dialogo attivo, non facciamo nulla.
 	if (!dlgCtrl.dialogueProcessingState.active) {
 		return RET_CONTINUE;
 	}
 
-	// Applica le eventuali modifiche grafiche pendenti (sprite, animazioni, dirty rect, ecc.)
+	// 1) Assicuriamoci che lo stato visivo (sprite, effetti, ecc.) sia “committato”.
+	//    Questo equivale alla parte iniziale di dialogueCommand() in cui si fa:
+	//      while (effect_current) waitEvent(0);
+	//    e poi si chiama commitVisualState().
+	//    Qui, invece di attendere (o gestire gli effetti), ci limitiamo a chiamare
+	//    direttamente commitVisualState() se crediamo che non ci siano effetti pendenti.
 	commitVisualState();
 
-	// Recupera il testo corrente visualizzato.
-	// Si assume che dlgCtrl.dataPart contenga il testo precedentemente caricato.
-	std::string currentText = dlgCtrl.dataPart;
+	// 2) Assicuriamoci che il layout del testo sia pronto:
+	//    in textCommand() si chiama dlgCtrl.layoutDialogue() se non l'abbiamo ancora fatto.
+	if (!dlgCtrl.dialogueProcessingState.layoutDone) {
+		dlgCtrl.layoutDialogue();
+	}
 
-	// Re-inietta lo stesso testo per applicare eventuali nuove impostazioni grafiche,
-	// ad esempio eventuali cambiamenti di posizione o stile definiti in "dialogue-style".
-	dlgCtrl.feedDialogueTextData(currentText.c_str());
-
-	// Forza il ricalcolo del layout: così, se le impostazioni grafiche sono cambiate,
-	// il posizionamento e la formattazione del testo verranno ricalcolati.
-	dlgCtrl.dialogueProcessingState.layoutDone = false;
-	dlgCtrl.layoutDialogue();
-
-	// Aggiorna la modalità di visualizzazione testuale per forzare il ridisegno
-	// dell'area del dialogo.
-	if (!(display_mode & DISPLAY_MODE_TEXT)) {
+	// 3) Se non siamo ancora in “text display mode” (cioè con la finestra di dialogo sullo schermo),
+	//    entriamoci. Questo è esattamente ciò che textCommand() fa con:
+	//
+	//      if (!page_enter_status) {
+	//          refresh_window_text_mode = ...
+	//          enterTextDisplayMode();
+	//          page_enter_status = 1;
+	//      }
+	//
+	//    Così facendo, la grafica della finestra di testo viene attivata se non lo era già.
+	if (!page_enter_status) {
 		refresh_window_text_mode = REFRESH_NORMAL_MODE | REFRESH_WINDOW_MODE | REFRESH_TEXT_MODE;
 		enterTextDisplayMode();
 		page_enter_status = 1;
-	} else {
-		// Se si utilizza una finestra di testo dinamica, eseguiamo un flush per aggiornare subito.
-		if (wndCtrl.usingDynamicTextWindow) {
-			flush(refresh_window_text_mode);
-		} else {
-			// Altrimenti, per finestre statiche, forziamo una sequenza di uscita e rientro.
-			leaveTextDisplayMode(true, true);
-			enterTextDisplayMode();
-		}
 	}
 
-	// Imposta il flag di "ready to run" per completare l'aggiornamento grafico.
-	dlgCtrl.dialogueProcessingState.readyToRun = true;
+	// 4) Eventuale forzatura di refresh/flush, se si desidera subito un disegno “forzato”.
+	//    Spesso ONScripter effettua il rendering su loop propri; questa chiamata
+	//    garantisce che venga processato immediatamente.
+	flush(refresh_window_text_mode);
 
+	// A questo punto, abbiamo ridisegnato solo la parte grafica del dialogo.
+	// Non abbiamo riletto script, non abbiamo aggiunto nulla al log,
+	// non abbiamo manipolato buffer o simili.
 	return RET_CONTINUE;
 }
 
