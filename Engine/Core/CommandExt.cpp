@@ -2776,37 +2776,27 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// Se non c'è un dialogo attivo, non c'è nulla da ricaricare.
-	if (!dlgCtrl.dialogueProcessingState.active)
-		return RET_CONTINUE;
-
-	// 1. Applica eventuali aggiornamenti grafici pendenti:
+	// 1. Applica eventuali modifiche grafiche pendenti (animazioni, sprite, ecc.)
 	commitVisualState();
 
-	// 2. Forza il ricalcolo del layout del dialogo:
-	//    (Impostando layoutDone a false si garantisce che dlgCtrl.layoutDialogue()
-	//     ricalcoli le posizioni/estensioni in base alle impostazioni correnti.)
+	// 2. Forza il ricalcolo del layout del dialogo.
+	//    Questo assicura che eventuali modifiche (es. posizione, dimensione, padding) vengano applicate.
 	dlgCtrl.dialogueProcessingState.layoutDone = false;
 	dlgCtrl.layoutDialogue();
 
-	// 3. Aggiorna la visualizzazione del testo.
-	//    Se siamo già in modalità testo, per finestre dinamiche viene effettuato un flush;
-	//    altrimenti, si entra in modalità testo.
-	if (display_mode & DISPLAY_MODE_TEXT) {
-		if (wndCtrl.usingDynamicTextWindow) {
-			flush(refresh_window_text_mode);
-		} else {
-			// Per finestre statiche si richiama comunque enterTextDisplayMode()
-			// per forzare il ridisegno.
-			enterTextDisplayMode();
-		}
-	} else {
+	// 3. Aggiorna la modalità di visualizzazione del testo.
+	//    Se non siamo in modalità "testo", entriamo in tale modalità.
+	if (!(display_mode & DISPLAY_MODE_TEXT)) {
+		// Imposta la maschera di refresh (come fatto in textCommand)
+		refresh_window_text_mode = REFRESH_NORMAL_MODE | REFRESH_WINDOW_MODE | REFRESH_TEXT_MODE;
 		enterTextDisplayMode();
+		page_enter_status = 1;
+	} else if (wndCtrl.usingDynamicTextWindow) {
+		// Se si usa una finestra dinamica, forziamo un flush per aggiornare l'area.
+		flush(refresh_window_text_mode);
 	}
 
-	// La funzione non tocca alcun dato relativo al log o allo script,
-	// agendo esclusivamente sul rendering grafico.
-	return RET_CONTINUE;
+	// La funzione non modifica il contenuto del dialogo, lo stato dello script o il log.
 }
 
 int ONScripter::dialogueNameCommand() {
