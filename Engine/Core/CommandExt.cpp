@@ -2776,27 +2776,27 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// Se il dialogo non è attivo, non facciamo nulla.
-	if (!dlgCtrl.dialogueProcessingState.active)
-		return RET_CONTINUE;
+	// NON vogliamo modificare il log o far avanzare il puntatore dello script,
+	// quindi utilizziamo lo string buffer (che in questo contesto non altera lo script).
+	script_h.pushStringBuffer(0);
 
-	// 1. Applica eventuali aggiornamenti relativi alle animazioni, agli sprite, ecc.
+	// Committa eventuali modifiche visive pendenti (ad esempio animazioni o proprietà sprite)
 	commitVisualState();
 
-	// 2. Ricalcola il layout del dialogo corrente usando le impostazioni attuali.
-	dlgCtrl.layoutDialogue();
+	// Assicura che la posizione del dialogo sia aggiornata (senza cambiare il testo)
+	dlgCtrl.dialogue_pos = script_h.getCurrent();
 
-	// 3. Riattiva la modalità di visualizzazione del testo.
-	enterTextDisplayMode();
+	// Forza il re-layout grafico: se la flag layoutDone è true, textCommand() non ricalcola la posizione.
+	dlgCtrl.dialogueProcessingState.layoutDone = false;
 
-	// 4. Se stiamo usando una finestra di testo dinamica, forziamo il flush per aggiornare l'area.
-	if (wndCtrl.usingDynamicTextWindow)
-		flush(refresh_window_text_mode);
+	// Rieffettua il feed del testo corrente: qui si assume che il testo attualmente visualizzato
+	// sia già stato precedentemente salvato in dlgCtrl.dataPart (visto che feedDialogueTextData lo usa per comporre il
+	// testo da visualizzare). Se non lo fosse, occorrerebbe salvarlo al momento della prima esecuzione del comando "d".
+	dlgCtrl.feedDialogueTextData(dlgCtrl.dataPart.c_str());
 
-	// 5. Ri-renderizza il dialogo sullo schermo.
-	displayDialogue();
-
-	return RET_CONTINUE;
+	// Infine richiama textCommand(), che esegue (graficamente) la procedura standard di rendering del dialogo
+	// (layout, abilitazione modalità testo, ecc.) senza alterare il log.
+	return textCommand();
 }
 
 int ONScripter::dialogueNameCommand() {
