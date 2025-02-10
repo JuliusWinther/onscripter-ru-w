@@ -2787,7 +2787,7 @@ int ONScripter::reloadDialogueCommand() { // W_TEMP2
 		script_h.readToEol();
 	}
 
-	return textCommand();
+	return RET_CONTINUE;
 }
 
 int ONScripter::dialogueNameCommand() {
