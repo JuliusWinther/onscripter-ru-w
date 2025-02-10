@@ -2778,13 +2778,10 @@ int ONScripter::dialogueCommand() {
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
 	// script_h.pushStringBuffer(0);
 
-	if (!dlgCtrl.dialogueProcessingState.active) {
+	if (dlgCtrl.dialogueProcessingState.active) {
 		// while (effect_current) waitEvent(0); // fixes the bug with d26767, is this the ONLY place to account for?
 		commitVisualState();
 		dlgCtrl.dialogue_pos = script_h.getCurrent();
-		dlgCtrl.feedDialogueTextData(script_h.readToEol());
-	} else {
-		script_h.readToEol();
 	}
 
 	return RET_CONTINUE;
