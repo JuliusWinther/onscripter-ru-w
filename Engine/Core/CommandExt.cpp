@@ -2776,27 +2776,44 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// NON vogliamo modificare il log o far avanzare il puntatore dello script,
-	// quindi utilizziamo lo string buffer (che in questo contesto non altera lo script).
-	script_h.pushStringBuffer(0);
+	// Se non c'è un dialogo attivo, non abbiamo nulla da aggiornare.
+	if (!dlgCtrl.dialogueProcessingState.active)
+		return RET_CONTINUE;
 
-	// Committa eventuali modifiche visive pendenti (ad esempio animazioni o proprietà sprite)
+	// Determina l'etichetta corrente per individuare il dialogo salvato nel log.
+	LabelInfo *label = current_label_info;
+	if (!callStack.empty())
+		label = callStack.front().label;
+	unsigned int labelIndex = script_h.getLabelIndex(label);
+
+	// Recupera il testo attuale del dialogo dal log (già salvato dal comando "d").
+	std::string currentDialogue = script_h.logState.dialogueData[labelIndex].text;
+
+	// Forza lo stato del dialogo a "non attivo" per simulare una nuova esecuzione.
+	dlgCtrl.dialogueProcessingState.active = false;
+
+	// Immetti nel buffer dello script il testo corrente.
+	// NOTA: Si assume che pushStringBuffer() abbia una versione che accetta una stringa;
+	// se non disponibile, occorre implementare l'iniezione del testo nel buffer in altro modo.
+	script_h.pushStringBuffer(currentDialogue.c_str());
+
+	// Attendi eventuali effetti grafici pendenti e "committa" lo stato visivo.
+	while (effect_current)
+		waitEvent(0);
 	commitVisualState();
 
-	// Assicura che la posizione del dialogo sia aggiornata (senza cambiare il testo)
+	// Aggiorna la posizione del dialogo senza far avanzare il puntatore dello script.
 	dlgCtrl.dialogue_pos = script_h.getCurrent();
 
-	// Forza il re-layout grafico: se la flag layoutDone è true, textCommand() non ricalcola la posizione.
+	// Legge dal buffer (che ora contiene il testo corrente) e ricarica il dialogo graficamente.
+	dlgCtrl.feedDialogueTextData(script_h.readToEol());
+
+	// Reset del flag "layoutDone" per forzare il ricalcolo completo del layout.
 	dlgCtrl.dialogueProcessingState.layoutDone = false;
 
-	// Rieffettua il feed del testo corrente: qui si assume che il testo attualmente visualizzato
-	// sia già stato precedentemente salvato in dlgCtrl.dataPart (visto che feedDialogueTextData lo usa per comporre il
-	// testo da visualizzare). Se non lo fosse, occorrerebbe salvarlo al momento della prima esecuzione del comando "d".
-	dlgCtrl.feedDialogueTextData(dlgCtrl.dataPart.c_str());
-
-	// Infine richiama textCommand(), che esegue (graficamente) la procedura standard di rendering del dialogo
-	// (layout, abilitazione modalità testo, ecc.) senza alterare il log.
-	return textCommand();
+	// Infine, richiama la routine di rendering (che ricalcola layout, attiva la modalità testo, ecc.).
+	int ret = textCommand();
+	return ret;
 }
 
 int ONScripter::dialogueNameCommand() {
