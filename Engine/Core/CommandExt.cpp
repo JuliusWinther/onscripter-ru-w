@@ -2776,27 +2776,27 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// 1. Applica eventuali modifiche grafiche pendenti (animazioni, sprite, ecc.)
+	// Se il dialogo non è attivo, non facciamo nulla.
+	if (!dlgCtrl.dialogueProcessingState.active)
+		return RET_CONTINUE;
+
+	// 1. Applica eventuali aggiornamenti relativi alle animazioni, agli sprite, ecc.
 	commitVisualState();
 
-	// 2. Forza il ricalcolo del layout del dialogo.
-	//    Questo assicura che eventuali modifiche (es. posizione, dimensione, padding) vengano applicate.
-	dlgCtrl.dialogueProcessingState.layoutDone = false;
+	// 2. Ricalcola il layout del dialogo corrente usando le impostazioni attuali.
 	dlgCtrl.layoutDialogue();
 
-	// 3. Aggiorna la modalità di visualizzazione del testo.
-	//    Se non siamo in modalità "testo", entriamo in tale modalità.
-	if (!(display_mode & DISPLAY_MODE_TEXT)) {
-		// Imposta la maschera di refresh (come fatto in textCommand)
-		refresh_window_text_mode = REFRESH_NORMAL_MODE | REFRESH_WINDOW_MODE | REFRESH_TEXT_MODE;
-		enterTextDisplayMode();
-		page_enter_status = 1;
-	} else if (wndCtrl.usingDynamicTextWindow) {
-		// Se si usa una finestra dinamica, forziamo un flush per aggiornare l'area.
-		flush(refresh_window_text_mode);
-	}
+	// 3. Riattiva la modalità di visualizzazione del testo.
+	enterTextDisplayMode();
 
-	// La funzione non modifica il contenuto del dialogo, lo stato dello script o il log.
+	// 4. Se stiamo usando una finestra di testo dinamica, forziamo il flush per aggiornare l'area.
+	if (wndCtrl.usingDynamicTextWindow)
+		flush(refresh_window_text_mode);
+
+	// 5. Ri-renderizza il dialogo sullo schermo.
+	displayDialogue();
+
+	return RET_CONTINUE;
 }
 
 int ONScripter::dialogueNameCommand() {
