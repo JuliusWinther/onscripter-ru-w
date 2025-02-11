@@ -2776,13 +2776,29 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// script_h.pushStringBuffer(0);
+	// 1. Aggiorna le proprietà dinamiche della finestra di dialogo in base alle modifiche (bordi, posizione, ecc.)
+	//    Questa chiamata aggiorna, ad esempio, eventuali estensioni della textbox
+	wndCtrl.updateTextboxExtension(true);
 
-	if (dlgCtrl.dialogueProcessingState.active) {
-		// while (effect_current) waitEvent(0); // fixes the bug with d26767, is this the ONLY place to account for?
-		commitVisualState();
-		dlgCtrl.dialogue_pos = script_h.getCurrent();
+	// 2. Ricalcola il layout del dialogo corrente. In questo modo il testo verrà riformattato
+	//    tenendo conto delle nuove dimensioni e dei bordi aggiornati della finestra di dialogo.
+	dlgCtrl.layoutDialogue();
+
+	// 3. Se siamo già in modalità di visualizzazione del testo (ovvero il dialogo è già in scena)
+	//    aggiorna l'area della finestra da ridisegnare.
+	if (display_mode & DISPLAY_MODE_TEXT) {
+		addTextWindowClip(dirty_rect_hud);
+	} else {
+		// Altrimenti, entra in modalità testo per poter visualizzare il dialogo aggiornato.
+		enterTextDisplayMode();
 	}
+
+	// 4. Forza il refresh della finestra utilizzando la modalità di refresh dedicata al testo.
+	//    Questo assicura che le modifiche (nuovo layout, bordi, posizionamento) siano applicate.
+	flush(refresh_window_text_mode);
+
+	// 5. Infine, ridisegna (renderizza) il dialogo corrente con le nuove impostazioni.
+	displayDialogue();
 
 	return RET_CONTINUE;
 }
