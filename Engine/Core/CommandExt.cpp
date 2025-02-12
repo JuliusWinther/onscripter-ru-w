@@ -2797,7 +2797,7 @@ int ONScripter::reloadDialogueCommand() { // W_TEMP2
 
 	// Eseguiamo il rendering del dialogo aggiornato sul target della finestra di testo
 	// refreshMode() è una funzione (già presente nel codice) che determina la modalità di refresh corrente.
-	renderDialogueToTarget(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
+	dlgCtrl.renderDialogueToTarget(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
 
 	// (Opzionale) Se usate un sistema di dirty-rect per aggiornare la finestra, potete aggiungere
 	// i rettangoli da rinfrescare.
