@@ -2802,6 +2802,8 @@ int ONScripter::reloadDialogueCommand() { // W_TEMP2
 	// (Opzionale) Se usate un sistema di dirty-rect per aggiornare la finestra, potete aggiungere
 	// i rettangoli da rinfrescare.
 	addTextWindowClip(dirty_rect_hud);
+
+	return RET_CONTINUE;
 }
 
 int ONScripter::dialogueNameCommand() {
