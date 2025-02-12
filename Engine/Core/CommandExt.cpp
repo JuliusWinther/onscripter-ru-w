@@ -2776,31 +2776,17 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// Se non c'è alcun dialogo attivo, non fare nulla.
+	// Se non è in corso un dialogo, non fare nulla.
 	if (!dlgCtrl.dialogueProcessingState.active)
 		return RET_CONTINUE;
 
-	// Se è presente un nome (per esempio il nome del personaggio), riprocessalo.
-	if (!dlgCtrl.dialogueName.empty()) {
-		dlgCtrl.nameLayouted = false;
-		dlgCtrl.nameRenderState.clear();
-		dlgCtrl.layoutName();
+	// Se esiste una posizione memorizzata per l'ultimo comando di dialogo...
+	if (dlgCtrl.dialogue_pos != nullptr) {
+		// Ripristina il puntatore dello script all'ultimo comando di dialogo
+		script_h.setCurrent(dlgCtrl.dialogue_pos);
+		// Re-esegui il comando di dialogo (che rileggerà il testo e ricalcolerà il layout)
+		dialogueCommand();
 	}
-
-	// Ricalcola il layout del dialogo (testo) tenendo conto delle nuove impostazioni
-	dlgCtrl.layoutDialogue();
-
-	// Se la finestra di dialogo è dinamica, aggiorna l'estensione e ridisegna;
-	// altrimenti usa il metodo standard per il rendering del dialogo.
-	if (wndCtrl.usingDynamicTextWindow) {
-		wndCtrl.updateTextboxExtension(false);
-		renderDynamicTextWindow(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
-	} else {
-		dlgCtrl.renderDialogueToTarget(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
-	}
-
-	// Infine forziamo un flush per rendere visibili le modifiche
-	flush(refreshMode());
 
 	return RET_CONTINUE;
 }
