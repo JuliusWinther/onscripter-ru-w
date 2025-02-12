@@ -2796,7 +2796,7 @@ int ONScripter::reloadDialogueCommand() { // W_TEMP2
 	// Esegui il rendering del dialogo aggiornato sul target della finestra di testo.
 	// refreshMode() è un metodo di ONScripter che restituisce la modalità di refresh corrente.
 	// canvasTextWindow è definito come static constexpr in ONScripter.hpp.
-	renderDialogueToTarget(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
+	dlgCtrl.renderDialogueToTarget(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
 
 	// Aggiungi i dirty-rect (se il sistema li usa)
 	addTextWindowClip(dirty_rect_hud);
