@@ -2808,7 +2808,7 @@ int ONScripter::reloadDialogueCommand() { // W_TEMP2
 	if (wndCtrl.usingDynamicTextWindow) {
 		wndCtrl.updateTextboxExtension(true);
 		if (ons.text_gpu && ons.text_gpu->target)
-			dlgCtrl.renderDynamicTextWindow(ons.text_gpu->target, nullptr, ons.refreshMode(), ons.canvasTextWindow);
+			renderDynamicTextWindow(ons.text_gpu->target, nullptr, ons.refreshMode(), ons.canvasTextWindow);
 		else
 			sendToLog(LogLevel::Warn, "renderDynamicTextWindow: text_gpu o target non valido\n");
 	} else {
