@@ -2776,17 +2776,26 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// Se non è in corso un dialogo, non fare nulla.
+	// Se non c'è un dialogo attivo, non fare nulla.
 	if (!dlgCtrl.dialogueProcessingState.active)
 		return RET_CONTINUE;
 
-	// Se esiste una posizione memorizzata per l'ultimo comando di dialogo...
-	if (dlgCtrl.dialogue_pos != nullptr) {
-		// Ripristina il puntatore dello script all'ultimo comando di dialogo
+	// Dispone (resetta) lo stato usato per i comandi di dialogo,
+	// così da consentire di entrare nuovamente in modalità "dialogue command".
+	dlgCtrl.scriptState.disposeDialogue(true);
+
+	// Imposta il flag di dialogo come non attivo, in modo che dialogueCommand()
+	// rilegga il testo (e non si limiti a fare un semplice readToEol())
+	dlgCtrl.dialogueProcessingState.active = false;
+
+	// Se è stata salvata la posizione dell'ultimo comando di dialogo,
+	// riposiziona il puntatore corrente dello script su di essa.
+	if (dlgCtrl.dialogue_pos != nullptr)
 		script_h.setCurrent(dlgCtrl.dialogue_pos);
-		// Re-esegui il comando di dialogo (che rileggerà il testo e ricalcolerà il layout)
-		dialogueCommand();
-	}
+
+	// Ora richiama dialogueCommand() per re-eseguire il comando di dialogo,
+	// che rileggerà il testo e ricalcolerà il layout in base alle nuove impostazioni.
+	dialogueCommand();
 
 	return RET_CONTINUE;
 }
