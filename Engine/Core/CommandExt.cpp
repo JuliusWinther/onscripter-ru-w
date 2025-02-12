@@ -2817,7 +2817,7 @@ int ONScripter::reloadDialogueCommand() { // W_TEMP2
 		flush(refreshMode());
 	}
 
-	dlgCtrl.displayDialogue();
+	displayDialogue();
 
 	return RET_CONTINUE;
 }
