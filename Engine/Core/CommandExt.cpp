@@ -2776,48 +2776,31 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// Controlla che il dialogo sia attivo
-	if (!dlgCtrl.dialogueProcessingState.active) {
-		sendToLog(LogLevel::Warn, "dialogueReloadCommand: nessun dialogo attivo\n");
+	// Se non c'è alcun dialogo attivo, non fare nulla.
+	if (!dlgCtrl.dialogueProcessingState.active)
 		return RET_CONTINUE;
+
+	// Se è presente un nome (per esempio il nome del personaggio), riprocessalo.
+	if (!dlgCtrl.dialogueName.empty()) {
+		dlgCtrl.nameLayouted = false;
+		dlgCtrl.nameRenderState.clear();
+		dlgCtrl.layoutName();
 	}
 
-	// Verifica che il testo del dialogo sia disponibile
-	if (dlgCtrl.dataPart.empty()) {
-		sendToLog(LogLevel::Warn, "dialogueReloadCommand: dlgCtrl.dataPart è vuoto\n");
-		return RET_CONTINUE;
-	}
+	// Ricalcola il layout del dialogo (testo) tenendo conto delle nuove impostazioni
+	dlgCtrl.layoutDialogue();
 
-	sendToLog(LogLevel::Info, "Reloading dialogue with updated window settings...\n");
-
-	// Prova a pulire il layout corrente
-	dlgCtrl.dialogueRenderState.clear();
-	dlgCtrl.nameRenderState.clear();
-	dlgCtrl.nameLayouted = false;
-
-	// Ricalcola il layout del dialogo.
-	// Se layoutDialogue() restituisce errori o genera eccezioni, catturale.
-	try {
-		dlgCtrl.layoutDialogue();
-	} catch (const std::exception &e) {
-		sendToLog(LogLevel::Error, "layoutDialogue() ha generato un'eccezione: %s\n", e.what());
-		return RET_CONTINUE;
-	}
-
-	// Aggiorna la visualizzazione in base al tipo di finestra usata
+	// Se la finestra di dialogo è dinamica, aggiorna l'estensione e ridisegna;
+	// altrimenti usa il metodo standard per il rendering del dialogo.
 	if (wndCtrl.usingDynamicTextWindow) {
-		wndCtrl.updateTextboxExtension(true);
-		if (ons.text_gpu && ons.text_gpu->target)
-			renderDynamicTextWindow(ons.text_gpu->target, nullptr, ons.refreshMode(), ons.canvasTextWindow);
-		else
-			sendToLog(LogLevel::Warn, "renderDynamicTextWindow: text_gpu o target non valido\n");
+		wndCtrl.updateTextboxExtension(false);
+		renderDynamicTextWindow(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
 	} else {
-		addTextWindowClip(before_dirty_rect_hud);
-		addTextWindowClip(dirty_rect_hud);
-		flush(refreshMode());
+		dlgCtrl.renderDialogueToTarget(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
 	}
 
-	displayDialogue();
+	// Infine forziamo un flush per rendere visibili le modifiche
+	flush(refreshMode());
 
 	return RET_CONTINUE;
 }
