@@ -2776,31 +2776,29 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// Verifica se è attivo un dialogo
+	// Se non è attivo un dialogo, non c'è nulla da ricalcolare
 	if (!dlgCtrl.dialogueProcessingState.active) {
-		// Se non è attivo, non c'è nulla da aggiornare
 		return RET_CONTINUE;
 	}
 
-	// Se si usa una finestra di dialogo dinamica, aggiorna l'estensione e i parametri relativi
+	// Se si usa una finestra di dialogo dinamica, aggiorna l'estensione in modo “smooth”
 	if (wndCtrl.usingDynamicTextWindow) {
-		// Aggiorna l'estensione della finestra in modo "smooth" (true per aggiornamento immediato e visivo)
 		wndCtrl.updateTextboxExtension(true);
 	}
 
-	// Puliamo lo stato di layout del dialogo corrente, così da forzare una ricalcolazione
+	// Svuota lo stato di layout corrente per forzare la ricalcolazione
 	dlgCtrl.dialogueRenderState.clear();
 	dlgCtrl.dialogueProcessingState.layoutDone = false;
 
-	// Riadattiamo il layout del dialogo corrente basandoci sul testo presente in dataPart e sulle nuove impostazioni della finestra
+	// Ricalcola il layout del dialogo corrente basandosi sul testo (dataPart)
 	dlgCtrl.layoutDialogue();
 
-	// Eseguiamo il rendering del dialogo aggiornato sul target della finestra di testo
-	// refreshMode() è una funzione (già presente nel codice) che determina la modalità di refresh corrente.
-	dlgCtrl.renderDialogueToTarget(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
+	// Esegui il rendering del dialogo aggiornato sul target della finestra di testo.
+	// refreshMode() è un metodo di ONScripter che restituisce la modalità di refresh corrente.
+	// canvasTextWindow è definito come static constexpr in ONScripter.hpp.
+	renderDialogueToTarget(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
 
-	// (Opzionale) Se usate un sistema di dirty-rect per aggiornare la finestra, potete aggiungere
-	// i rettangoli da rinfrescare.
+	// Aggiungi i dirty-rect (se il sistema li usa)
 	addTextWindowClip(dirty_rect_hud);
 
 	return RET_CONTINUE;
