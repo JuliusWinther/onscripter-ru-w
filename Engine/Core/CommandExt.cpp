@@ -2776,31 +2776,32 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// 1. Aggiorna le proprietà dinamiche della finestra di dialogo in base alle modifiche (bordi, posizione, ecc.)
-	//    Questa chiamata aggiorna, ad esempio, eventuali estensioni della textbox
-	wndCtrl.updateTextboxExtension(true);
-
-	// 2. Ricalcola il layout del dialogo corrente. In questo modo il testo verrà riformattato
-	//    tenendo conto delle nuove dimensioni e dei bordi aggiornati della finestra di dialogo.
-	dlgCtrl.layoutDialogue();
-
-	// 3. Se siamo già in modalità di visualizzazione del testo (ovvero il dialogo è già in scena)
-	//    aggiorna l'area della finestra da ridisegnare.
-	if (display_mode & DISPLAY_MODE_TEXT) {
-		addTextWindowClip(dirty_rect_hud);
-	} else {
-		// Altrimenti, entra in modalità testo per poter visualizzare il dialogo aggiornato.
-		enterTextDisplayMode();
+	// Verifica se è attivo un dialogo
+	if (!dlgCtrl.dialogueProcessingState.active) {
+		// Se non è attivo, non c'è nulla da aggiornare
+		return RET_CONTINUE;
 	}
 
-	// 4. Forza il refresh della finestra utilizzando la modalità di refresh dedicata al testo.
-	//    Questo assicura che le modifiche (nuovo layout, bordi, posizionamento) siano applicate.
-	flush(refresh_window_text_mode);
+	// Se si usa una finestra di dialogo dinamica, aggiorna l'estensione e i parametri relativi
+	if (wndCtrl.usingDynamicTextWindow) {
+		// Aggiorna l'estensione della finestra in modo "smooth" (true per aggiornamento immediato e visivo)
+		wndCtrl.updateTextboxExtension(true);
+	}
 
-	// 5. Infine, ridisegna (renderizza) il dialogo corrente con le nuove impostazioni.
-	displayDialogue();
+	// Puliamo lo stato di layout del dialogo corrente, così da forzare una ricalcolazione
+	dlgCtrl.dialogueRenderState.clear();
+	dlgCtrl.dialogueProcessingState.layoutDone = false;
 
-	return RET_CONTINUE;
+	// Riadattiamo il layout del dialogo corrente basandoci sul testo presente in dataPart e sulle nuove impostazioni della finestra
+	dlgCtrl.layoutDialogue();
+
+	// Eseguiamo il rendering del dialogo aggiornato sul target della finestra di testo
+	// refreshMode() è una funzione (già presente nel codice) che determina la modalità di refresh corrente.
+	renderDialogueToTarget(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
+
+	// (Opzionale) Se usate un sistema di dirty-rect per aggiornare la finestra, potete aggiungere
+	// i rettangoli da rinfrescare.
+	addTextWindowClip(dirty_rect_hud);
 }
 
 int ONScripter::dialogueNameCommand() {
