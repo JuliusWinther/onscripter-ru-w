@@ -2776,30 +2776,48 @@ int ONScripter::dialogueCommand() {
 }
 
 int ONScripter::reloadDialogueCommand() { // W_TEMP2
-	// Se non è attivo un dialogo, non c'è nulla da ricalcolare
+	// Controlla che il dialogo sia attivo
 	if (!dlgCtrl.dialogueProcessingState.active) {
+		sendToLog(LogLevel::Warn, "dialogueReloadCommand: nessun dialogo attivo\n");
 		return RET_CONTINUE;
 	}
 
-	// Se si usa una finestra di dialogo dinamica, aggiorna l'estensione in modo “smooth”
-	if (wndCtrl.usingDynamicTextWindow) {
-		wndCtrl.updateTextboxExtension(true);
+	// Verifica che il testo del dialogo sia disponibile
+	if (dlgCtrl.dataPart.empty()) {
+		sendToLog(LogLevel::Warn, "dialogueReloadCommand: dlgCtrl.dataPart è vuoto\n");
+		return RET_CONTINUE;
 	}
 
-	// Svuota lo stato di layout corrente per forzare la ricalcolazione
+	sendToLog(LogLevel::Info, "Reloading dialogue with updated window settings...\n");
+
+	// Prova a pulire il layout corrente
 	dlgCtrl.dialogueRenderState.clear();
-	dlgCtrl.dialogueProcessingState.layoutDone = false;
+	dlgCtrl.nameRenderState.clear();
+	dlgCtrl.nameLayouted = false;
 
-	// Ricalcola il layout del dialogo corrente basandosi sul testo (dataPart)
-	dlgCtrl.layoutDialogue();
+	// Ricalcola il layout del dialogo.
+	// Se layoutDialogue() restituisce errori o genera eccezioni, catturale.
+	try {
+		dlgCtrl.layoutDialogue();
+	} catch (const std::exception &e) {
+		sendToLog(LogLevel::Error, "layoutDialogue() ha generato un'eccezione: %s\n", e.what());
+		return RET_CONTINUE;
+	}
 
-	// Esegui il rendering del dialogo aggiornato sul target della finestra di testo.
-	// refreshMode() è un metodo di ONScripter che restituisce la modalità di refresh corrente.
-	// canvasTextWindow è definito come static constexpr in ONScripter.hpp.
-	dlgCtrl.renderDialogueToTarget(text_gpu->target, nullptr, refreshMode(), canvasTextWindow);
+	// Aggiorna la visualizzazione in base al tipo di finestra usata
+	if (wndCtrl.usingDynamicTextWindow) {
+		wndCtrl.updateTextboxExtension(true);
+		if (ons.text_gpu && ons.text_gpu->target)
+			dlgCtrl.renderDynamicTextWindow(ons.text_gpu->target, nullptr, ons.refreshMode(), ons.canvasTextWindow);
+		else
+			sendToLog(LogLevel::Warn, "renderDynamicTextWindow: text_gpu o target non valido\n");
+	} else {
+		addTextWindowClip(before_dirty_rect_hud);
+		addTextWindowClip(dirty_rect_hud);
+		flush(refreshMode());
+	}
 
-	// Aggiungi i dirty-rect (se il sistema li usa)
-	addTextWindowClip(dirty_rect_hud);
+	dlgCtrl.displayDialogue();
 
 	return RET_CONTINUE;
 }
