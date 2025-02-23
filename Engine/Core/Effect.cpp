@@ -14,7 +14,7 @@
 
 #include "Engine/Core/ONScripter.hpp"
 
-static char *dll = nullptr, *params = nullptr; //for dll-based effects
+static char *dll = nullptr, *params = nullptr; // for dll-based effects
 
 bool ONScripter::constantRefreshEffect(EffectLink *effect, bool clear_dirty_rect_when_done, bool async, int refresh_mode_src, int refresh_mode_dst) {
 
@@ -27,7 +27,7 @@ bool ONScripter::constantRefreshEffect(EffectLink *effect, bool clear_dirty_rect
 		return false; // No need to bother
 	}
 
-	//sendToLog(LogLevel::Info, "constantRefreshEffect start\n");
+	// sendToLog(LogLevel::Info, "constantRefreshEffect start\n");
 
 	if (effect->effect == 15 || effect->effect == 18) {
 		if (!effect->anim.gpu_image) {
@@ -55,23 +55,23 @@ bool ONScripter::constantRefreshEffect(EffectLink *effect, bool clear_dirty_rect
 		}
 	}
 
-	//sendToLog(LogLevel::Info, "constantRefreshEffect return\n");
+	// sendToLog(LogLevel::Info, "constantRefreshEffect return\n");
 
 	return false; // false: effect complete or scheduled
 }
 
 bool ONScripter::setEffect() {
 	/*	sendToLog(LogLevel::Info, "setEffect. effect_no %i, dirty_rect_hud.bounding_box xywh: %i %i %i %i\n",
-			effect->effect,
-			dirty_rect_hud.bounding_box.x, dirty_rect_hud.bounding_box.y, dirty_rect_hud.bounding_box.w, dirty_rect_hud.bounding_box.h);
-	
+	        effect->effect,
+	        dirty_rect_hud.bounding_box.x, dirty_rect_hud.bounding_box.y, dirty_rect_hud.bounding_box.w, dirty_rect_hud.bounding_box.h);
+
 	sendToLog(LogLevel::Info, "setEffect. effect_no %i, dirty_rect_scene.bounding_box xywh: %i %i %i %i\n",
-			effect->effect,
-			dirty_rect_scene.bounding_box.x, dirty_rect_scene.bounding_box.y, dirty_rect_scene.bounding_box.w, dirty_rect_scene.bounding_box.h);
+	        effect->effect,
+	        dirty_rect_scene.bounding_box.x, dirty_rect_scene.bounding_box.y, dirty_rect_scene.bounding_box.w, dirty_rect_scene.bounding_box.h);
 */
 
-	EffectLink *effect       = effect_current;
-	int refresh_mode_dst     = effect_refresh_mode_dst;
+	EffectLink *effect   = effect_current;
+	int refresh_mode_dst = effect_refresh_mode_dst;
 
 	if (effect->effect == 0)
 		return true;
@@ -83,20 +83,20 @@ bool ONScripter::setEffect() {
 
 	if (effect_dst_gpu == nullptr) {
 		assert(hud_effect_dst_gpu == nullptr && combined_effect_dst_gpu == nullptr);
-		effect_dst_gpu = gpu.getCanvasImage();
-		hud_effect_dst_gpu = gpu.getCanvasImage();
+		effect_dst_gpu          = gpu.getCanvasImage();
+		hud_effect_dst_gpu      = gpu.getCanvasImage();
 		combined_effect_dst_gpu = gpu.getScriptImage();
 	}
 
 	if (pre_screen_gpu == nullptr)
 		pre_screen_gpu = gpu.getScriptImage();
 
-	//Copy old data to _dst in case we don't update the whole screen
+	// Copy old data to _dst in case we don't update the whole screen
 	gpu.copyGPUImage(accumulation_gpu, nullptr, nullptr, effect_dst_gpu->target);
 	gpu.copyGPUImage(hud_gpu, nullptr, nullptr, hud_effect_dst_gpu->target);
 
-	//All these commands may be called from CR and mergeForEffect calls refresh*To afterwards.
-	//If we don't provide CR_MODE we will never get proper combined_*gpu for refreshMode()
+	// All these commands may be called from CR and mergeForEffect calls refresh*To afterwards.
+	// If we don't provide CR_MODE we will never get proper combined_*gpu for refreshMode()
 	if (effect_no == 1) {
 		mergeForEffect(combined_effect_dst_gpu,
 		               &dirty_rect_scene.bounding_box_script,
@@ -106,8 +106,8 @@ bool ONScripter::setEffect() {
 		// Allocate src images for transitional effects!
 		if (effect_src_gpu == nullptr) {
 			assert(hud_effect_src_gpu == nullptr && combined_effect_src_gpu == nullptr);
-			effect_src_gpu = gpu.getCanvasImage();
-			hud_effect_src_gpu = gpu.getCanvasImage();
+			effect_src_gpu          = gpu.getCanvasImage();
+			hud_effect_src_gpu      = gpu.getCanvasImage();
 			combined_effect_src_gpu = gpu.getScriptImage();
 		}
 
@@ -126,7 +126,7 @@ bool ONScripter::setEffect() {
 		// shorten the duration of effects while skipping
 		if (effect_cut_flag) {
 			effect_duration = 0;
-			return false; //don't parse effects if effectcut skip
+			return false; // don't parse effects if effectcut skip
 		}
 		if (effect_duration > 100) {
 			effect_duration = effect_duration / 10;
@@ -137,7 +137,7 @@ bool ONScripter::setEffect() {
 		}
 	} else if (effectspeed == EFFECTSPEED_INSTANT) {
 		effect_duration = 0;
-		return false; //don't parse effects if instant speed
+		return false; // don't parse effects if instant speed
 	} else if (effectspeed == EFFECTSPEED_QUICKER) {
 		effect_duration = effect_duration / 2;
 		if (effect_duration <= 0)
@@ -158,7 +158,7 @@ bool ONScripter::setEffect() {
 	dll = params = nullptr;
 	if (effect_no == 99) { // dll-based
 		dll = effect->anim.image_name;
-		if (dll != nullptr) { //just in case no dll is given
+		if (dll != nullptr) { // just in case no dll is given
 			if (debug_level > 0)
 				sendToLog(LogLevel::Info, "dll effect: Got dll/params '%s'\n", dll);
 
@@ -182,7 +182,7 @@ void ONScripter::mergeForEffect(GPU_Image *dst, GPU_Rect *scene_rect, GPU_Rect *
 	if (!hud_rect)
 		hud_rect = &full_rect;
 
-	//sendToLog(LogLevel::Info, "mergeForEffect with dst %d\n", dst==combined_effect_dst_gpu);
+	// sendToLog(LogLevel::Info, "mergeForEffect with dst %d\n", dst==combined_effect_dst_gpu);
 
 	if (dst == combined_effect_src_gpu) {
 		combineWithCamera(effect_src_gpu, hud_effect_src_gpu, combined_effect_src_gpu->target, *scene_rect, *hud_rect, refresh_mode);
@@ -226,7 +226,7 @@ bool ONScripter::doEffect() {
 			break;
 
 		default:
-			//not_implemented = true;
+			// not_implemented = true;
 			if (effect_first_time) {
 				std::snprintf(script_h.errbuf, MAX_ERRBUF_LEN,
 				              "effect No. %d not implemented; substituting crossfade",
@@ -255,6 +255,8 @@ bool ONScripter::doEffect() {
 					effectTrvswave(params, effect_duration);
 				} else if (!std::strncmp(dll, "breakup.dll", std::strlen("breakup.dll"))) {
 					effectBreakupParser(params, refresh_mode_src, refresh_mode_dst);
+				} else if (!std::strncmp(dll, "but.dll", std::strlen("but.dll"))) { /*TEST*/
+					effectButterflyBreakupParser(params, refresh_mode_src, refresh_mode_dst);
 				} else if (!std::strncmp(dll, "glass.dll", std::strlen("glass.dll"))) {
 					if (new_glass_smash_implementation)
 						effectBrokenGlassParser(params, refresh_mode_src, refresh_mode_dst);
@@ -269,7 +271,7 @@ bool ONScripter::doEffect() {
 						errorAndCont(script_h.errbuf);
 					}
 				}
-			} else { //just in case no dll is given
+			} else { // just in case no dll is given
 				not_implemented = true;
 				if (effect_first_time) {
 					std::snprintf(script_h.errbuf, MAX_ERRBUF_LEN,
@@ -313,22 +315,22 @@ bool ONScripter::doEffect() {
 	}
 
 	if (effect_no > 1)
-		fillCanvas(false, true); //formerly true, false (creates #110)
+		fillCanvas(false, true); // formerly true, false (creates #110)
 
 	// free upon next effect
 	gpu.giveCanvasImage(effect_dst_gpu);
 	gpu.giveCanvasImage(hud_effect_dst_gpu);
 	gpu.giveScriptImage(combined_effect_dst_gpu);
-	effect_dst_gpu = nullptr;
-	hud_effect_dst_gpu = nullptr;
+	effect_dst_gpu          = nullptr;
+	hud_effect_dst_gpu      = nullptr;
 	combined_effect_dst_gpu = nullptr;
 
 	if (effect_src_gpu != nullptr && hud_effect_src_gpu != nullptr && combined_effect_src_gpu != nullptr) {
 		gpu.giveCanvasImage(effect_src_gpu);
 		gpu.giveCanvasImage(hud_effect_src_gpu);
 		gpu.giveScriptImage(combined_effect_src_gpu);
-		effect_src_gpu = nullptr;
-		hud_effect_src_gpu = nullptr;
+		effect_src_gpu          = nullptr;
+		hud_effect_src_gpu      = nullptr;
 		combined_effect_src_gpu = nullptr;
 	}
 
@@ -369,20 +371,17 @@ void ONScripter::sendToPreScreen(bool refreshSrc, std::function<PooledGPUImage(G
 		pre_screen_gpu = gpu.getScriptImage();
 
 	GPU_SetBlending(lower, false);
-	gpu.copyGPUImage(lower, nullptr, nullptr, pre_screen_gpu->target); //unchanged surface first
+	gpu.copyGPUImage(lower, nullptr, nullptr, pre_screen_gpu->target); // unchanged surface first
 	GPU_SetBlending(lower, true);
-	gpu.copyGPUImage(upper, nullptr, nullptr, pre_screen_gpu->target); //then the changed one
+	gpu.copyGPUImage(upper, nullptr, nullptr, pre_screen_gpu->target); // then the changed one
 }
 
 void ONScripter::effectBreakupParser(const char *params, int refresh_mode_src, int refresh_mode_dst) {
 	bool refreshSrc  = params[2] != 'p' && params[2] != 'P';
 	int breakupValue = refreshSrc ? 1000 * effect_counter / effect_duration : 1000 - (1000 * effect_counter / effect_duration);
 
-	sendToPreScreen(refreshSrc, [breakupValue, params](GPUTransformableCanvasImage &transform) {
-		return gpu.getBrokenUpImage(transform, {{BreakupType::GLOBAL, 0}}, breakupValue,
-		                            BREAKUP_MODE_LEFT, params);
-	},
-	                refresh_mode_src, refresh_mode_dst);
+	sendToPreScreen(refreshSrc, [breakupValue, params](GPUTransformableCanvasImage &transform) { return gpu.getBrokenUpImage(transform, {{BreakupType::GLOBAL, 0}}, breakupValue,
+		                                                                                                                     BREAKUP_MODE_LEFT, params); }, refresh_mode_src, refresh_mode_dst);
 }
 
 void ONScripter::effectBrokenGlassParser(const char *params, int refresh_mode_src, int refresh_mode_dst) {
@@ -397,8 +396,109 @@ void ONScripter::effectBrokenGlassParser(const char *params, int refresh_mode_sr
 		glassSmashData.initialised = false;
 	}
 
-	sendToPreScreen(true, [smashFactor](GPUTransformableCanvasImage &transform) {
-		return gpu.getGlassSmashedImage(transform, smashFactor);
-	},
-	                refresh_mode_src, refresh_mode_dst);
+	sendToPreScreen(true, [smashFactor](GPUTransformableCanvasImage &transform) { return gpu.getGlassSmashedImage(transform, smashFactor); }, refresh_mode_src, refresh_mode_dst);
+}
+
+/* */
+#include <cmath> // for sin, cos
+
+// Helper function to rotate a point (x, y) about center (cx, cy) by angle (in radians)
+static void rotatePoint(float cx, float cy, float angle, float &x, float &y) {
+	float s  = std::sin(angle);
+	float c  = std::cos(angle);
+	float dx = x - cx;
+	float dy = y - cy;
+	x        = cx + dx * c - dy * s;
+	y        = cy + dx * s + dy * c;
+}
+
+// Helper function to draw a golden butterfly on the given canvas at (centerX, centerY)
+// with the specified size and rotation angle (in radians).
+static void drawButterfly(GPU_Image *canvas, int centerX, int centerY, int size, float angle) {
+	// Define the golden color (assumed ARGB format: opaque golden)
+	Uint32 golden    = 0xFFFFD700;
+	float halfSize   = size / 2.0f;
+	float wingLength = size; // length of each wing
+
+	// Define left wing as a triangle (before rotation)
+	float lx1 = centerX, ly1 = centerY;
+	float lx2 = centerX - wingLength, ly2 = centerY - halfSize;
+	float lx3 = centerX - wingLength, ly3 = centerY + halfSize;
+	// Define right wing as a triangle (before rotation)
+	float rx1 = centerX, ry1 = centerY;
+	float rx2 = centerX + wingLength, ry2 = centerY - halfSize;
+	float rx3 = centerX + wingLength, ry3 = centerY + halfSize;
+
+	// Rotate the wing vertices around the center to add a fluttering effect.
+	rotatePoint(centerX, centerY, angle, lx2, ly2);
+	rotatePoint(centerX, centerY, angle, lx3, ly3);
+	rotatePoint(centerX, centerY, angle, rx2, ry2);
+	rotatePoint(centerX, centerY, angle, rx3, ry3);
+
+	// Draw the wings using the GPU’s filled triangle drawing routine.
+	gpu.drawFilledTriangle(canvas, (int)lx1, (int)ly1, (int)lx2, (int)ly2, (int)lx3, (int)ly3, golden);
+	gpu.drawFilledTriangle(canvas, (int)rx1, (int)ry1, (int)rx2, (int)ry2, (int)rx3, (int)ry3, golden);
+
+	// Draw the butterfly’s body as a small centered rectangle.
+	int bodyWidth  = size / 3;
+	int bodyHeight = size;
+	int bodyX      = centerX - bodyWidth / 2;
+	int bodyY      = centerY - bodyHeight / 2;
+	gpu.drawFilledRect(canvas, bodyX, bodyY, bodyWidth, bodyHeight, golden);
+}
+
+// Alternative butterfly breakup effect parser.
+// This effect replaces the classic dot breakup by shattering the image into beautiful small golden butterflies.
+void ONScripter::effectButterflyBreakupParser(const char *params, int refresh_mode_src, int refresh_mode_dst) {
+	bool refreshSrc  = params[2] != 'p' && params[2] != 'P';
+	int breakupValue = refreshSrc ? 1000 * effect_counter / effect_duration : 1000 - (1000 * effect_counter / effect_duration);
+
+	sendToPreScreen(refreshSrc, [breakupValue](GPUTransformableCanvasImage &transform) -> PooledGPUImage {
+        // Create a new blank canvas (using the GPU’s script image) for the effect
+        GPU_Image *canvas = gpu.getScriptImage();
+        gpu.clearWholeTarget(canvas->target);
+
+        // Set grid parameters for placing butterflies.
+        // Adjust gridSize to control how many butterflies appear (smaller grid = more butterflies).
+        const int gridSize = 30; // pixels
+        int imgWidth  = transform.image->w;
+        int imgHeight = transform.image->h;
+        int centerX = imgWidth / 2;
+        int centerY = imgHeight / 2;
+        
+        // Compute progress (0.0 to 1.0) based on breakupValue.
+        float progress = breakupValue / 1000.0f;
+        
+        // Iterate over grid cells covering the image.
+        for (int y = 0; y < imgHeight; y += gridSize) {
+            for (int x = 0; x < imgWidth; x += gridSize) {
+                // Compute cell center.
+                int cellCenterX = x + gridSize / 2;
+                int cellCenterY = y + gridSize / 2;
+                
+                // Compute vector from image center to cell center.
+                int dx = cellCenterX - centerX;
+                int dy = cellCenterY - centerY;
+                
+                // Calculate displacement so the butterflies fly outward.
+                float displacementFactor = progress * 50; // maximum displacement (in pixels)
+                int offsetX = (int)(dx * progress * 0.5f + displacementFactor * std::cos(progress));
+                int offsetY = (int)(dy * progress * 0.5f + displacementFactor * std::sin(progress));
+                int newX = cellCenterX + offsetX;
+                int newY = cellCenterY + offsetY;
+                
+                // Set butterfly size proportional to the grid cell.
+                int butterflySize = gridSize;
+                // Use progress to set a rotation angle for a gentle flutter (up to 45° rotation).
+                float angle = progress * 3.1415f / 4;
+                
+                // Draw a golden butterfly at the new position.
+                drawButterfly(canvas, newX, newY, butterflySize, angle);
+            }
+        }
+        
+        // Wrap the finished canvas in a PooledGPUImage and return it.
+        PooledGPUImage result;
+        result.image = canvas;
+        return result; }, refresh_mode_src, refresh_mode_dst);
 }

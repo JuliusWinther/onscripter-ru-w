@@ -1275,6 +1275,7 @@ private:
 	void effectTrvswave(const char *params, int duration);
 	void effectWhirl(const char *params, int duration);
 	void effectBreakupParser(const char *params, int refresh_mode_src, int refresh_mode_dst);
+	void effectButterflyBreakupParser(const char *params, int refresh_mode_src, int refresh_mode_dst); /**/
 	void effectBrokenGlassParser(const char *params, int refresh_mode_src, int refresh_mode_dst);
 
 	/* ---------------------------------------- */
