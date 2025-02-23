@@ -400,9 +400,11 @@ void ONScripter::effectBrokenGlassParser(const char *params, int refresh_mode_sr
 }
 
 /* */
-#include <cmath> // for sin, cos
+#include <cmath>
+#include <algorithm>
+#include <SDL.h>
 
-// Helper function to rotate a point (x, y) about center (cx, cy) by angle (in radians)
+// Helper function to rotate a point (x, y) about center (cx, cy) by a given angle (in radians)
 static void rotatePoint(float cx, float cy, float angle, float &x, float &y) {
 	float s  = std::sin(angle);
 	float c  = std::cos(angle);
@@ -412,13 +414,90 @@ static void rotatePoint(float cx, float cy, float angle, float &x, float &y) {
 	y        = cy + dx * s + dy * c;
 }
 
-// Helper function to draw a golden butterfly on the given canvas at (centerX, centerY)
-// with the specified size and rotation angle (in radians).
+// Helper to set an individual pixel on an SDL_Surface (if within bounds)
+static void putPixel(SDL_Surface *surface, int x, int y, Uint32 color) {
+	if (x < 0 || x >= surface->w || y < 0 || y >= surface->h)
+		return;
+	Uint32 *pixels        = (Uint32 *)surface->pixels;
+	int pitch             = surface->pitch / sizeof(Uint32);
+	pixels[y * pitch + x] = color;
+}
+
+// Helper function to fill a rectangle on a GPU_Image (its target is assumed to be an SDL_Surface)
+static void fillRect(GPU_Image *image, int x, int y, int w, int h, Uint32 color) {
+	SDL_Surface *surface = static_cast<SDL_Surface *>(image->target);
+	if (SDL_MUSTLOCK(surface)) {
+		SDL_LockSurface(surface);
+	}
+	for (int j = y; j < y + h; j++) {
+		for (int i = x; i < x + w; i++) {
+			putPixel(surface, i, j, color);
+		}
+	}
+	if (SDL_MUSTLOCK(surface)) {
+		SDL_UnlockSurface(surface);
+	}
+}
+
+// Helper function to fill a triangle on a GPU_Image using a simple scanline algorithm.
+static void fillTriangle(GPU_Image *image, int x1, int y1, int x2, int y2, int x3, int y3, Uint32 color) {
+	// Sort vertices by y-coordinate
+	if (y2 < y1) {
+		std::swap(x1, x2);
+		std::swap(y1, y2);
+	}
+	if (y3 < y1) {
+		std::swap(x1, x3);
+		std::swap(y1, y3);
+	}
+	if (y3 < y2) {
+		std::swap(x2, x3);
+		std::swap(y2, y3);
+	}
+
+	SDL_Surface *surface = static_cast<SDL_Surface *>(image->target);
+	if (SDL_MUSTLOCK(surface))
+		SDL_LockSurface(surface);
+
+	auto edgeInterp = [](int y, int y0, int x0, int y1, int x1) -> int {
+		if (y1 == y0)
+			return x0;
+		return x0 + (x1 - x0) * (y - y0) / (y1 - y0);
+	};
+
+	auto drawScanline = [surface, color](int y, int xStart, int xEnd) {
+		if (y < 0 || y >= surface->h)
+			return;
+		if (xStart > xEnd)
+			std::swap(xStart, xEnd);
+		for (int x = xStart; x <= xEnd; x++) {
+			putPixel(surface, x, y, color);
+		}
+	};
+
+	// Draw the triangle using scanlines from y1 to y3.
+	for (int y = y1; y <= y3; y++) {
+		if (y < y2) {
+			int xa = edgeInterp(y, y1, x1, y3, x3);
+			int xb = edgeInterp(y, y1, x1, y2, x2);
+			drawScanline(y, xa, xb);
+		} else {
+			int xa = edgeInterp(y, y1, x1, y3, x3);
+			int xb = edgeInterp(y, y2, x2, y3, x3);
+			drawScanline(y, xa, xb);
+		}
+	}
+
+	if (SDL_MUSTLOCK(surface))
+		SDL_UnlockSurface(surface);
+}
+
+// Draws a golden butterfly at the specified center with a given size and rotation (angle in radians)
 static void drawButterfly(GPU_Image *canvas, int centerX, int centerY, int size, float angle) {
-	// Define the golden color (assumed ARGB format: opaque golden)
+	// Define the golden color (ARGB format: opaque golden)
 	Uint32 golden    = 0xFFFFD700;
 	float halfSize   = size / 2.0f;
-	float wingLength = size; // length of each wing
+	float wingLength = static_cast<float>(size); // length for each wing
 
 	// Define left wing as a triangle (before rotation)
 	float lx1 = centerX, ly1 = centerY;
@@ -429,38 +508,41 @@ static void drawButterfly(GPU_Image *canvas, int centerX, int centerY, int size,
 	float rx2 = centerX + wingLength, ry2 = centerY - halfSize;
 	float rx3 = centerX + wingLength, ry3 = centerY + halfSize;
 
-	// Rotate the wing vertices around the center to add a fluttering effect.
+	// Rotate wing vertices around the center to create a flutter effect.
 	rotatePoint(centerX, centerY, angle, lx2, ly2);
 	rotatePoint(centerX, centerY, angle, lx3, ly3);
 	rotatePoint(centerX, centerY, angle, rx2, ry2);
 	rotatePoint(centerX, centerY, angle, rx3, ry3);
 
-	// Draw the wings using the GPU’s filled triangle drawing routine.
-	gpu.drawFilledTriangle(canvas, (int)lx1, (int)ly1, (int)lx2, (int)ly2, (int)lx3, (int)ly3, golden);
-	gpu.drawFilledTriangle(canvas, (int)rx1, (int)ry1, (int)rx2, (int)ry2, (int)rx3, (int)ry3, golden);
+	// Draw the wings using our fillTriangle helper.
+	fillTriangle(canvas, static_cast<int>(lx1), static_cast<int>(ly1),
+	             static_cast<int>(lx2), static_cast<int>(ly2),
+	             static_cast<int>(lx3), static_cast<int>(ly3), golden);
+	fillTriangle(canvas, static_cast<int>(rx1), static_cast<int>(ry1),
+	             static_cast<int>(rx2), static_cast<int>(ry2),
+	             static_cast<int>(rx3), static_cast<int>(ry3), golden);
 
 	// Draw the butterfly’s body as a small centered rectangle.
 	int bodyWidth  = size / 3;
 	int bodyHeight = size;
 	int bodyX      = centerX - bodyWidth / 2;
 	int bodyY      = centerY - bodyHeight / 2;
-	gpu.drawFilledRect(canvas, bodyX, bodyY, bodyWidth, bodyHeight, golden);
+	fillRect(canvas, bodyX, bodyY, bodyWidth, bodyHeight, golden);
 }
 
 // Alternative butterfly breakup effect parser.
-// This effect replaces the classic dot breakup by shattering the image into beautiful small golden butterflies.
+// This effect replaces the classic breakup (into dots/points) with a shattering of the image into small golden butterflies.
 void ONScripter::effectButterflyBreakupParser(const char *params, int refresh_mode_src, int refresh_mode_dst) {
 	bool refreshSrc  = params[2] != 'p' && params[2] != 'P';
 	int breakupValue = refreshSrc ? 1000 * effect_counter / effect_duration : 1000 - (1000 * effect_counter / effect_duration);
 
 	sendToPreScreen(refreshSrc, [breakupValue](GPUTransformableCanvasImage &transform) -> PooledGPUImage {
-        // Create a new blank canvas (using the GPU’s script image) for the effect
+        // Create a new blank canvas (using the GPU’s script image) for this effect
         GPU_Image *canvas = gpu.getScriptImage();
         gpu.clearWholeTarget(canvas->target);
 
-        // Set grid parameters for placing butterflies.
-        // Adjust gridSize to control how many butterflies appear (smaller grid = more butterflies).
-        const int gridSize = 30; // pixels
+        // Set grid parameters: gridSize controls how many butterflies appear (smaller grid yields more butterflies).
+        const int gridSize = 30; // cell size in pixels
         int imgWidth  = transform.image->w;
         int imgHeight = transform.image->h;
         int centerX = imgWidth / 2;
@@ -472,7 +554,7 @@ void ONScripter::effectButterflyBreakupParser(const char *params, int refresh_mo
         // Iterate over grid cells covering the image.
         for (int y = 0; y < imgHeight; y += gridSize) {
             for (int x = 0; x < imgWidth; x += gridSize) {
-                // Compute cell center.
+                // Compute the cell’s center.
                 int cellCenterX = x + gridSize / 2;
                 int cellCenterY = y + gridSize / 2;
                 
@@ -480,16 +562,16 @@ void ONScripter::effectButterflyBreakupParser(const char *params, int refresh_mo
                 int dx = cellCenterX - centerX;
                 int dy = cellCenterY - centerY;
                 
-                // Calculate displacement so the butterflies fly outward.
+                // Calculate a displacement so the butterflies “fly” outward.
                 float displacementFactor = progress * 50; // maximum displacement (in pixels)
-                int offsetX = (int)(dx * progress * 0.5f + displacementFactor * std::cos(progress));
-                int offsetY = (int)(dy * progress * 0.5f + displacementFactor * std::sin(progress));
+                int offsetX = static_cast<int>(dx * progress * 0.5f + displacementFactor * std::cos(progress));
+                int offsetY = static_cast<int>(dy * progress * 0.5f + displacementFactor * std::sin(progress));
                 int newX = cellCenterX + offsetX;
                 int newY = cellCenterY + offsetY;
                 
-                // Set butterfly size proportional to the grid cell.
+                // Butterfly size is proportional to the grid cell.
                 int butterflySize = gridSize;
-                // Use progress to set a rotation angle for a gentle flutter (up to 45° rotation).
+                // Use progress to compute a rotation angle (up to 45° rotation) for a gentle flutter effect.
                 float angle = progress * 3.1415f / 4;
                 
                 // Draw a golden butterfly at the new position.
