@@ -664,6 +664,7 @@
 		1CE24BEA1C47FBAA002A27EA /* libc++abi.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++abi.tbd"; path = "usr/lib/libc++abi.tbd"; sourceTree = SDKROOT; };
 		1CFB164919A3825700BB2681 /* effectWarp.frag */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.glsl; lineEnding = 2; path = effectWarp.frag; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.glsl; };
 		1CFCD31B18920189009A5885 /* breakup.frag */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.glsl; path = breakup.frag; sourceTree = "<group>"; };
+		TEST12345678989054634567 /* butterfly.frag */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.glsl; path = butterfly.frag; sourceTree = "<group>"; }; /*TEST*/
 		1CFD9DEE18719E8800337FD3 /* mergeAlpha.frag */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.glsl; path = mergeAlpha.frag; sourceTree = "<group>"; };
 		2F5351551D51371C0023D8F0 /* renderSubtitles.frag */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.glsl; path = renderSubtitles.frag; sourceTree = "<group>"; };
 		2F5351771D51FD970023D8F0 /* onscripter-ru-ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "onscripter-ru-ios.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1522,6 +1523,7 @@
 				1C95350F17C75F8400922DEB /* blurH.frag */,
 				1C95351017C75F8400922DEB /* blurV.frag */,
 				1CFCD31B18920189009A5885 /* breakup.frag */,
+				TEST12345678989054634567,
 				1C8320D919230CD0007C16CB /* textFade.frag */,
 				1C14FD8F1C6F116100200498 /* pixelate.frag */,
 				CEE770631D42A5370074A2F9 /* colourConversion.frag */,
@@ -2004,6 +2006,7 @@
 				"$(PROJECT_DIR)/Resources/Shaders/blurH.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/blurV.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/breakup.frag",
+				"$(PROJECT_DIR)/Resources/Shaders/butterfly.frag",/*TEST*/
 				"$(PROJECT_DIR)/Resources/Shaders/textFade.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/pixelate.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/colourConversion.frag",
@@ -2041,6 +2044,7 @@
 				"$(PROJECT_DIR)/Resources/Shaders/blurH.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/blurV.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/breakup.frag",
+				"$(PROJECT_DIR)/Resources/Shaders/butterfly.frag",/*TEST*/
 				"$(PROJECT_DIR)/Resources/Shaders/textFade.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/pixelate.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/colourConversion.frag",
@@ -2078,6 +2082,7 @@
 				"$(PROJECT_DIR)/Resources/Shaders/blurH.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/blurV.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/breakup.frag",
+				"$(PROJECT_DIR)/Resources/Shaders/butterfly.frag",/*TEST*/
 				"$(PROJECT_DIR)/Resources/Shaders/textFade.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/pixelate.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/colourConversion.frag",
@@ -2130,6 +2135,7 @@
 				"$(PROJECT_DIR)/Resources/Shaders/blurH.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/blurV.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/breakup.frag",
+				"$(PROJECT_DIR)/Resources/Shaders/butterfly.frag",/*TEST*/
 				"$(PROJECT_DIR)/Resources/Shaders/textFade.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/pixelate.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/colourConversion.frag",
@@ -2167,6 +2173,7 @@
 				"$(PROJECT_DIR)/Resources/Shaders/blurH.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/blurV.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/breakup.frag",
+				"$(PROJECT_DIR)/Resources/Shaders/butterfly.frag",/*TEST*/
 				"$(PROJECT_DIR)/Resources/Shaders/textFade.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/pixelate.frag",
 				"$(PROJECT_DIR)/Resources/Shaders/colourConversion.frag",
