@@ -112,7 +112,7 @@ private:
 
 const std::array<GPU_BlendMode, static_cast<size_t>(BlendModeId::TOTAL)> BLEND_MODES{{//{GPU_FUNC_SRC_ALPHA, GPU_FUNC_ONE_MINUS_SRC_ALPHA, GPU_FUNC_SRC_ALPHA, GPU_FUNC_DST_ALPHA, GPU_EQ_ADD, GPU_EQ_ADD},
                                                                                       {GPU_FUNC_ONE, GPU_FUNC_ONE_MINUS_SRC_ALPHA, GPU_FUNC_ONE, GPU_FUNC_ONE_MINUS_SRC_ALPHA, GPU_EQ_ADD, GPU_EQ_ADD},
-                                                                                      //Take care of alpha values, we need them for rain
+                                                                                      // Take care of alpha values, we need them for rain
                                                                                       {GPU_FUNC_SRC_ALPHA, GPU_FUNC_ONE, GPU_FUNC_SRC_ALPHA, GPU_FUNC_DST_ALPHA, GPU_EQ_ADD, GPU_EQ_ADD},
                                                                                       {GPU_FUNC_ONE, GPU_FUNC_ONE, GPU_FUNC_ONE, GPU_FUNC_ONE, GPU_EQ_SUBTRACT, GPU_EQ_SUBTRACT},
                                                                                       {GPU_FUNC_DST_COLOR, GPU_FUNC_ZERO, GPU_FUNC_SRC_ALPHA, GPU_FUNC_ONE_MINUS_SRC_ALPHA, GPU_EQ_ADD, GPU_EQ_ADD},
@@ -143,7 +143,7 @@ struct PooledGPUImage {
 		}
 	}
 	// Can't copy pooled gpu image containers
-	PooledGPUImage(const PooledGPUImage &) = delete; // no copy
+	PooledGPUImage(const PooledGPUImage &)            = delete; // no copy
 	PooledGPUImage &operator=(const PooledGPUImage &) = delete; // no assign
 	// But you can move them
 	PooledGPUImage(PooledGPUImage &&src) noexcept
@@ -308,7 +308,7 @@ public:
 	}
 
 	FORCE_INLINE void updateTargets(GPU_Image *src, GPU_Target *dst) {
-		//Note, that we do not check vector sizes here
+		// Note, that we do not check vector sizes here
 		image  = src;
 		target = dst;
 	}
@@ -369,10 +369,10 @@ public:
 	void createProgramFromShaders(const char *programAlias, std::vector<uint32_t> &targets);
 	void linkProgram(const char *programAlias, uint32_t prog);
 
-	//We are in need of a proper image loading that disables SDL_gpu blending...
+	// We are in need of a proper image loading that disables SDL_gpu blending...
 	GPU_Image *createImage(uint16_t w, uint16_t h, uint8_t channels, bool store = false) {
 		GPU_Image *image = globalImagePool.get(w, h, channels, store);
-		//GPU_SetBlendMode(image, GPU_BLEND_OVERRIDE);
+		// GPU_SetBlendMode(image, GPU_BLEND_OVERRIDE);
 		if (image->snap_mode != GPU_SNAP_NONE)
 			GPU_SetSnapMode(image, GPU_SNAP_NONE);
 		return image;
@@ -395,7 +395,7 @@ public:
 	GPU_Image *copyImageFromSurface(SDL_Surface *surface) {
 		GPU_Image *image = createImage(surface->w, surface->h, surface->format->BytesPerPixel == 4 ? 4 : 3);
 		updateImage(image, nullptr, surface, nullptr);
-		//GPU_SetBlendMode(image, GPU_BLEND_OVERRIDE);
+		// GPU_SetBlendMode(image, GPU_BLEND_OVERRIDE);
 		if (image->snap_mode != GPU_SNAP_NONE)
 			GPU_SetSnapMode(image, GPU_SNAP_NONE);
 		return image;
@@ -589,8 +589,8 @@ public:
 		TriangleBlitter res;
 		res.image  = image;
 		res.target = target;
-		//res.elementsPerVertex = 4;
-		//res.dataStructure = GPU_BATCH_XY_ST;
+		// res.elementsPerVertex = 4;
+		// res.dataStructure = GPU_BATCH_XY_ST;
 		res.elementsPerVertex = 5;
 		res.dataStructure     = GPU_BATCH_XYZ_ST;
 		res.vertices.resize(res.elementsPerVertex * res.maxVertices);
@@ -612,17 +612,25 @@ public:
 		return globalImagePool.generate();
 	}
 
-	void clearImagePools(bool require_empty=false) {
+	void clearImagePools(bool require_empty = false) {
 		scriptImagePool.clearUnused(require_empty);
 		canvasImagePool.clearUnused(require_empty);
 		typedImagePools.clear();
 		globalImagePool.clear();
 	}
 
-	GPU_Image *getCanvasImage() { return canvasImagePool.getImage(); }
-	void giveCanvasImage(GPU_Image *im) { canvasImagePool.giveImage(im); }
-	GPU_Image *getScriptImage() { return scriptImagePool.getImage(); }
-	void giveScriptImage(GPU_Image *im) { scriptImagePool.giveImage(im); }
+	GPU_Image *getCanvasImage() {
+		return canvasImagePool.getImage();
+	}
+	void giveCanvasImage(GPU_Image *im) {
+		canvasImagePool.giveImage(im);
+	}
+	GPU_Image *getScriptImage() {
+		return scriptImagePool.getImage();
+	}
+	void giveScriptImage(GPU_Image *im) {
+		scriptImagePool.giveImage(im);
+	}
 
 	GPUController()
 	    : BaseController(this), globalImagePool(GlobalImagePoolSize) {}

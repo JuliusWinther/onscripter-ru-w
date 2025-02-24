@@ -1274,9 +1274,8 @@ private:
 	void sendToPreScreen(bool refreshSrc, std::function<PooledGPUImage(GPUTransformableCanvasImage &)> applyTransform, int refresh_mode_src, int refresh_mode_dst);
 	void effectTrvswave(const char *params, int duration);
 	void effectWhirl(const char *params, int duration);
-	void effectBrokenGlassParser(const char *params, int refresh_mode_src, int refresh_mode_dst);
 	void effectBreakupParser(const char *params, int refresh_mode_src, int refresh_mode_dst);
-	void effectBreakupButterflies(const char *params, int refresh_mode_src, int refresh_mode_dst); /*TEST*/
+	void effectBrokenGlassParser(const char *params, int refresh_mode_src, int refresh_mode_dst);
 
 	/* ---------------------------------------- */
 	/* Breakup related */
