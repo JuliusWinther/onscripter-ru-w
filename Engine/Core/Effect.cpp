@@ -398,6 +398,42 @@ void ONScripter::effectBrokenGlassParser(const char *params, int refresh_mode_sr
 	sendToPreScreen(true, [smashFactor](GPUTransformableCanvasImage &transform) { return gpu.getGlassSmashedImage(transform, smashFactor); }, refresh_mode_src, refresh_mode_dst);
 }
 
+void copyButterfly(TriangleBlitter &blitter, float cx, float cy, float dstX, float dstY, float scale) {
+	// Define wing dimensions (adjust these constants as desired)
+	float wingWidth  = 10.0f * scale;
+	float wingHeight = 6.0f * scale;
+
+	// --- Left Wing ---
+	// Use the cell center as the butterfly “body” center.
+	float x0 = dstX, y0 = dstY;
+	float x1 = dstX - wingWidth, y1 = dstY - wingHeight;
+	float x2 = dstX - wingWidth, y2 = dstY + wingHeight;
+	// Use dummy texture coordinates (the shader will modulate with a golden color)
+	blitter.copyTriangle(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+	                     x0, y0, 0.0f, x1, y1, 0.0f, x2, y2, 0.0f);
+
+	// --- Right Wing ---
+	x1 = dstX + wingWidth;
+	y1 = dstY - wingHeight;
+	x2 = dstX + wingWidth;
+	y2 = dstY + wingHeight;
+	blitter.copyTriangle(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+	                     x0, y0, 0.0f, x1, y1, 0.0f, x2, y2, 0.0f);
+
+	// --- Butterfly Body ---
+	float bodyWidth  = 2.0f * scale;
+	float bodyHeight = 8.0f * scale;
+	float bx0 = dstX - bodyWidth / 2.0f, by0 = dstY - bodyHeight / 2.0f;
+	float bx1 = dstX + bodyWidth / 2.0f, by1 = dstY - bodyHeight / 2.0f;
+	float bx2 = dstX + bodyWidth / 2.0f, by2 = dstY + bodyHeight / 2.0f;
+	float bx3 = dstX - bodyWidth / 2.0f, by3 = dstY + bodyHeight / 2.0f;
+	// Draw body as two triangles forming a rectangle.
+	blitter.copyTriangle(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+	                     bx0, by0, 0.0f, bx1, by1, 0.0f, bx2, by2, 0.0f);
+	blitter.copyTriangle(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+	                     bx0, by0, 0.0f, bx2, by2, 0.0f, bx3, by3, 0.0f);
+}
+
 /// New effect: Butterfly Breakup Effect.
 /// This function should be declared in ONScripter.hpp as:
 ///    void effectBreakupButterflies(const char *params, int refresh_mode_src, int refresh_mode_dst);
