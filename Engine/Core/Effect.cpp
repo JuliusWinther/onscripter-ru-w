@@ -397,3 +397,71 @@ void ONScripter::effectBrokenGlassParser(const char *params, int refresh_mode_sr
 
 	sendToPreScreen(true, [smashFactor](GPUTransformableCanvasImage &transform) { return gpu.getGlassSmashedImage(transform, smashFactor); }, refresh_mode_src, refresh_mode_dst);
 }
+
+/// New effect: Butterfly Breakup Effect.
+/// This function should be declared in ONScripter.hpp as:
+///    void effectBreakupButterflies(const char *params, int refresh_mode_src, int refresh_mode_dst);
+void ONScripter::effectBreakupButterflies(const char *params, int refresh_mode_src, int refresh_mode_dst) {
+	// For this alternative effect we use a fixed BreakupID.
+	BreakupID id;
+	id.hash = 0xB00FBABE; // An arbitrary constant hash for the butterfly effect.
+
+	// If breakup data for this ID has not yet been initialized, do so.
+	if (breakupInitRequired(id)) {
+		// Use the screen target’s image (or sprite tightfit as needed) to initialize.
+		initBreakup(id, ons.screen_target->image, nullptr);
+		// (No additional resources are required for butterfly effect.)
+	}
+
+	BreakupData &data  = breakupData[id];
+	BreakupCell *cells = data.breakup_cells.data();
+	int duration       = 1000;
+	// Here we assume that 'params' contains the breakupFactor as a string.
+	int breakupFactor = atoi(params);
+	int frame         = data.tot_frames * breakupFactor / duration;
+
+	// Update each breakup cell’s state (similar to the “new” breakup effect)
+	for (int n = 0; n < data.n_cells; ++n) {
+		int state             = cells[n].state - frame;
+		cells[n].state        = state;
+		cells[n].disp_x       = 0;
+		cells[n].disp_y       = 0;
+		cells[n].resizeFactor = 1.0f;
+		if (state < BREAKUP_DISSOLVE_FRAMES) {
+			cells[n].resizeFactor = (state <= 0) ? 0.0f : (float)state / BREAKUP_DISSOLVE_FRAMES;
+		}
+		if (state < BREAKUP_MOVE_FRAMES && state > 0) {
+			cells[n].disp_x = cells[n].xMovement * (BREAKUP_MOVE_FRAMES - state);
+			cells[n].disp_y = cells[n].yMovement * (BREAKUP_MOVE_FRAMES - state);
+		}
+	}
+	data.prev_frame += frame; // update previous frame counter
+
+	// Set up the shader that will modulate the drawn butterflies with a golden color.
+	// (Ensure that the shader "butterfly.frag" is compiled and available in your resource list.)
+	gpu.setShaderProgram("butterfly.frag");
+	// Set a uniform "butterflyColor" to a golden value (RGB 212,175,55).
+	SDL_Color golden = {212, 175, 55, 255};
+	gpu.setShaderVar("butterflyColor", golden);
+
+	// Retrieve the TriangleBlitter instance from the breakup data.
+	TriangleBlitter &blitter = data.blitter.get();
+
+	// For each breakup cell that is still visible (resizeFactor > 0),
+	// draw a butterfly at the cell’s (displaced) location.
+	for (int n = 0; n < data.n_cells; ++n) {
+		if (cells[n].resizeFactor > 0) {
+			// Compute the original cell position (in pixels).
+			float cellPosX = cells[n].cell_x * data.cellFactor;
+			float cellPosY = cells[n].cell_y * data.cellFactor;
+			// Destination position adds the displacement computed above.
+			float dstX = cellPosX + cells[n].disp_x;
+			float dstY = cellPosY + cells[n].disp_y;
+			// Draw a butterfly at this location. The butterfly size is scaled by resizeFactor.
+			copyButterfly(blitter, cellPosX, cellPosY, dstX, dstY, cells[n].resizeFactor);
+		}
+	}
+
+	blitter.finish();
+	gpu.unsetShaderProgram();
+}
