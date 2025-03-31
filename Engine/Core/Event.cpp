@@ -850,15 +850,15 @@ bool ONScripter::keyDownEvent(SDL_KeyboardEvent &event, EventProcessingState &st
 					internal_slowdown_counter = 0; // maybe a slightly wrong place to do it
 				}
 			}
-			if (!skipIsAllowed()) {
-				sendToLog(LogLevel::Info, "CTRL DISABLED\n");
-				ctrl_pressed_skip_disabled = true;                     // W_TEMP
-				gosubReal(ctrl_callback_label, script_h.getCurrent()); // W_TEMP
-				break;                                                 // Skip not allowed, exit
+			/*if (!skipIsAllowed()) {
+			    sendToLog(LogLevel::Info, "CTRL DISABLED\n");
+			    ctrl_pressed_skip_disabled = true;                     // W_TEMP
+			    gosubReal(ctrl_callback_label, script_h.getCurrent()); // W_TEMP
+			    break;                                                 // Skip not allowed, exit
 			} else {
-				// sendToLog(LogLevel::Info, "CTRL ENABLED\n");
-				ctrl_pressed_skip_disabled = false; // W_TEMP
-			}
+			    // sendToLog(LogLevel::Info, "CTRL ENABLED\n");
+			    ctrl_pressed_skip_disabled = false; // W_TEMP
+			}*/
 			if (last_ctrl_status != state.keyState.ctrl) {
 				skip_effect = true; // allow short-circuiting the current effect with ctrl
 				if (video_skip_mode == VideoSkip::Normal) {
