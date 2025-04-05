@@ -1,48 +1,49 @@
 #version 120
-uniform float tilesX;            // Numero di tiles lungo l'asse orizzontale
-uniform float tilesY;            // Numero di tiles lungo l'asse verticale
-uniform int breakupCellforms;    // (Non usato in questo ramo, ma lasciato per retrocompatibilità)
-uniform sampler2D tex;           // Texture di base
-uniform sampler2D tex1;          // (Non usato in questo esempio)
-uniform sampler2D tex2;          // Texture griglia contenente valori per il raggio (0 = effetto attivo, 1 = effetto disattivato)
+uniform float tilesX; // numero di tiles orizzontali
+uniform float tilesY; // numero di tiles verticali
+uniform int breakupCellforms; // non più usato in questo ramo, ma lasciato per compatibilità
+uniform sampler2D tex;  // texture di sfondo
+uniform sampler2D tex1; // texture originale (non utilizzata ora)
+uniform sampler2D tex2; // texture griglia contenente il raggio per ogni tile
 
 varying /* PRAGMA: ONS_RU highprecision */ vec2 texCoord;
 
 void main(void) {
-    // Calcola a quale cella appartiene il frammento
     float belongsToTileX = floor(texCoord.s * tilesX) / tilesX;
     float belongsToTileY = floor(texCoord.t * tilesY) / tilesY;
     float gridReportedRadius = texture2D(tex2, vec2(belongsToTileX, belongsToTileY)).r;
     
-    // Se il valore è 1.0 o maggiore, si usa la texture originale
     if (gridReportedRadius >= 1.0) {
-        gl_FragColor = texture2D(tex, texCoord);
+        gl_FragColor = texture2D(tex, texCoord.st);
     } else {
-        // Calcola la dimensione della cella e il suo centro
-        vec2 tileSize = vec2(1.0 / tilesX, 1.0 / tilesY);
-        vec2 tileCenter = vec2(belongsToTileX + tileSize.x * 0.5, belongsToTileY + tileSize.y * 0.5);
-        // Distanza dal centro della cella
-        float dist = distance(texCoord, tileCenter);
+        // Calcola coordinate all'interno della cella (da 0 a 1)
+        float xPercentageThroughTile = mod(texCoord.s, 1.0/tilesX) * tilesX;
+        float yPercentageThroughTile = mod(texCoord.t, 1.0/tilesY) * tilesY;
+        vec2 cellCoord = vec2(xPercentageThroughTile, yPercentageThroughTile);
         
-        // Parametri per rendere l'effetto molto evidente:
-        float circleRadius = tileSize.x * 0.45;   // Raggio del cerchio, quasi metà della larghezza della cella
-        float glowThickness = circleRadius * 0.5;   // Uno spessore maggiore per l'alone
+        // Centro della cella
+        vec2 center = vec2(0.5, 0.5);
+        float d = distance(cellCoord, center);
         
-        // Maschera del cerchio con bordo netto (smoothstep per transizione)
-        float circleMask = smoothstep(circleRadius, circleRadius - 0.05, dist);
-        // Maschera per l'alone: transizione dall'esterno del cerchio fino al bordo esterno del glow
-        float glowMask = smoothstep(circleRadius + glowThickness, circleRadius, dist) - circleMask;
+        // Parametri per cerchio e glow
+        float innerRadius = 0.3;     // raggio interno: area piena
+        float outerRadius = 0.35;    // inizio dissolvenza del bordo
+        float glowOuterRadius = 0.4; // raggio massimo del glow
         
-        // Aumenta l'intensità del glow
-        float glowIntensity = 3.0;
-        // Colore dorato marcato
+        // Calcola l'opacità per il cerchio interno
+        float circle = 1.0 - smoothstep(innerRadius, outerRadius, d);
+        // Calcola il glow, meno intenso
+        float glow = 1.0 - smoothstep(outerRadius, glowOuterRadius, d);
+        
+        // Combina il cerchio con il glow (questo valore controlla la miscelazione)
+        float finalAlpha = max(circle, glow * 0.5);
+        
+        // Colore dorato
         vec3 golden = vec3(1.0, 0.84, 0.0);
-        // Campiona il colore di base dalla texture
-        vec4 baseColor = texture2D(tex, texCoord);
         
-        // Combina il colore di base con il dorato, applicando sia il cerchio che il glow
-        vec3 color = mix(baseColor.rgb, golden, circleMask) + golden * glowMask * glowIntensity;
-        
-        gl_FragColor = vec4(color, baseColor.a);
+        // Sfondo di base
+        vec4 bg = texture2D(tex, texCoord.st);
+        // Miscelazione: nei pixel dove il glow è attivo il colore dorato si applica in modo trasparente
+        gl_FragColor = mix(bg, vec4(golden, 1.0), finalAlpha);
     }
 }
