@@ -68,10 +68,11 @@ void ObjectFallLayer::setAmount(uint32_t dropNum) {
 	// This specifies the order of the positions along the sky axis to make the drops fall from.
 	// By having a shuffled list rather than just using a rand function to determine the position, we aim for greater "evenness" and avoid empty spots.
 	for (uint32_t i = 0; i < dropNum; i++) dropSpawnOrder.emplace_back(i);
-	std::random_device rng;
-	std::default_random_engine urng(rng());
 
 	// W_UBUNTU-FIX
+	// std::random_device rng;
+	// std::default_random_engine urng(rng());
+
 	// std::shuffle(dropSpawnOrder.begin(), dropSpawnOrder.end(), urng);
 
 	static thread_local std::mt19937_64 rng{std::random_device{}()};
