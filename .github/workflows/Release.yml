@@ -55,8 +55,12 @@ jobs:
       - name: Build
         run: |
           make clean
+          # Rimuovo l’oggetto GLES3 da SDL2_gpu per evitare definizioni duplicate
+          i686-w64-mingw32-ar d DerivedData/MinGW-i686/Dependencies/onscrlib/lib/libSDL2_gpu.a renderer_GLES_3.c.obj
           make -j$(nproc)
-          mv DerivedData/MinGW-i686/onscripter-ru.exe ciout ; cp -r Resources/Windows/dlls ciout/dlls ; cd ciout
+          mv DerivedData/MinGW-i686/onscripter-ru.exe ciout
+          cp -r Resources/Windows/dlls ciout/dlls
+          cd ciout
           zip -qry onscripter-ru_win_r${BUILD}${{env.dev}}${{env.discord}}.zip onscripter-ru.exe dlls
       - name: Upload files
         uses: ncipollo/release-action@v1
