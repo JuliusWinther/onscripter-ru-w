@@ -75,8 +75,13 @@ void ObjectFallLayer::setAmount(uint32_t dropNum) {
 
 	// std::shuffle(dropSpawnOrder.begin(), dropSpawnOrder.end(), urng);
 
+	std::shuffle(objects.begin(), objects.end(), rng);
 	static thread_local std::mt19937 rng{std::random_device{}()};
-	std::shuffle(dropSpawnOrder.begin(), dropSpawnOrder.end(), rng);
+	// Fisher–Yates manuale su dropSpawnOrder per bypassare il bug di std::shuffle in GCC11
+	for (size_t i = dropSpawnOrder.size(); i > 1; --i) {
+		uint32_t j = rng() % i;
+		std::swap(dropSpawnOrder[i - 1], dropSpawnOrder[j]);
+	}
 
 	// END
 }
