@@ -605,12 +605,13 @@ fi
 mkdir -p "${BUILD_PATH}/Dependencies"
 
 # Su MinGW elimino il backend GLES3 da SDL2_gpu //W_UBUNTU
-    echo "Removing GLES3 renderer from SDL2_gpu for MinGW target…"
-    find "$ONSCRLIB" -type f \
-         -path '*/SDL2_gpu/src/renderer_GLES_3.c' -delete
-    find "$ONSCRLIB" -type f \
-         -path '*/SDL2_gpu/include/renderer_GLES_3.h' -delete
-  fi
+if [[ "$SYS" == "MinGW" ]] || [[ "$CROSS_TRIPLE" == *mingw* ]]; then
+  echo "Removing GLES3 renderer from SDL2_gpu for MinGW target…"
+  find "$ONSCRLIB" -type f \
+       -path '*/SDL2_gpu/src/renderer_GLES_3.c' -delete
+  find "$ONSCRLIB" -type f \
+       -path '*/SDL2_gpu/include/renderer_GLES_3.h' -delete
+fi
 
 
 pushd "$ONSCRLIB" &> /dev/null
