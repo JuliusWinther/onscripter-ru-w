@@ -57,22 +57,20 @@ void ObjectFallLayer::setAmplifiers(float s, float w, float h, float r, float m)
 }
 
 void ObjectFallLayer::setAmount(uint32_t dropNum) {
-	// Applies to each size
+	// Se c'è randomAmplifier, moltiplica
 	if (randomAmplifier != 0)
 		dropNum *= 3;
-
 	dropAmount = dropNum;
-	dropSpawnOrder.clear();
 
-	// Create the drop spawn order list.
+	// Ricostruisci la lista 0…dropNum-1
+	dropSpawnOrder.clear();
 	for (uint32_t i = 0; i < dropNum; i++)
 		dropSpawnOrder.emplace_back(i);
 
-	// Fisher–Yates manuale su dropSpawnOrder per bypassare eventuali bug di std::shuffle
+	// Fisher–Yates manuale
 	static thread_local std::mt19937 rng{std::random_device{}()};
 	for (size_t i = dropSpawnOrder.size(); i > 1; --i) {
-		std::uniform_int_distribution<uint32_t> dist(0, i - 1);
-		uint32_t j = dist(rng);
+		uint32_t j = static_cast<uint32_t>(rng()) % i;
 		std::swap(dropSpawnOrder[i - 1], dropSpawnOrder[j]);
 	}
 }
