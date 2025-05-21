@@ -790,20 +790,6 @@ SOURCES=(
   "${RESOURCE_FILE}"
 )
 
-#
-# Su MinGW non compilare GLES3 (evitiamo le doppie definizioni) //W_UBUNTU
-#
-if [ "$SYS" = "MinGW" ]; then
-  new_sources=()
-  for src in "${SOURCES[@]}"; do
-    if [ "$src" != "Engine/Graphics/GLES3.cpp" ]; then
-      new_sources+=("$src")
-    fi
-  done
-  SOURCES=("${new_sources[@]}")
-fi
-
-
 if [[ $USEDISCORD ]]; then
   SOURCES+=(
     'Engine/Components/DiscordEvents.cpp'
