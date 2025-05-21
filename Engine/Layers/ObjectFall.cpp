@@ -75,7 +75,7 @@ void ObjectFallLayer::setAmount(uint32_t dropNum) {
 
 	// std::shuffle(dropSpawnOrder.begin(), dropSpawnOrder.end(), urng);
 
-	static thread_local std::mt19937_64 rng{std::random_device{}()};
+	static thread_local std::mt19937 rng{std::random_device{}()};
 	std::shuffle(dropSpawnOrder.begin(), dropSpawnOrder.end(), rng);
 
 	// END
