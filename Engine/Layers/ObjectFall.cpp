@@ -56,7 +56,7 @@ void ObjectFallLayer::setAmplifiers(float s, float w, float h, float r, float m)
 	assert(heightAmplifier > 0);
 }
 
-void ObjectFallLayer::setAmount(uint32_t dropNum) {
+void ObjectFallLayer::setAmount(uint32_t dropNum) { // W_UBUNTU
 	// Se c'è randomAmplifier, moltiplica
 	if (randomAmplifier != 0)
 		dropNum *= 3;
