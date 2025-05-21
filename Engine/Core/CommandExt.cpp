@@ -1994,36 +1994,38 @@ int ONScripter::operateConfigCommand() {
 	return RET_CONTINUE;
 }
 
-int ONScripter::operateFileCommand() { // W_TEST
-	// Syntax in script: operate_file, "path/to/file.txt", $dst
+int ONScripter::operateFileCommand() {
+	// Syntax: operate_file, "path/to/file.txt", $dst
 
-	// 1) leggiamo il nome del comando (dovrebbe essere "file" o "operate_file")
-	std::string op = script_h.readName();
+	// 1) leggiamo (e ignoriamo) il nome del comando
+	script_h.readName();
 
-	// 2) leggiamo la stringa con il path del file
+	// 2) stringa con il path
 	std::string filename = script_h.readStr();
 
-	// 3) prepariamo la variabile di destinazione esattamente come nel 'read'
+	// 3) prepariamo la variabile di destinazione
 	script_h.readVariable();
 	script_h.pushVariable();
 	int var_no = script_h.pushed_variable.var_no;
 
-	// 4) proviamo ad aprire e leggere tutto il contenuto
-	std::string content;
+	// 4) apriamo e leggiamo file in un vector<uint8_t>
 	size_t filesize = 0;
-	uint8_t *buf    = FileIO::readFile(filename.c_str(), &filesize);
-	if (buf != nullptr) {
-		// costruiamo la stringa a partire dal buffer
-		content.assign(reinterpret_cast<char *>(buf), filesize);
-		FileIO::freeFile(buf); // oppure 'free(buf)' a seconda della tua API
+	std::vector<uint8_t> buffer;
+	std::string content;
+
+	if (FileIO::readFile(filename, filesize, buffer)) {
+		// Copio i byte dal vector in una std::string
+		content.assign(reinterpret_cast<const char *>(buffer.data()), filesize);
 	} else {
-		// in caso di errore, logghiamo e mettiamo stringa vuota
-		sendToLog(LogLevel::Error, "operate_file: impossibile aprire '%s'\n", filename.c_str());
+		sendToLog(LogLevel::Error,
+		          "operate_file: impossibile aprire '%s'\n",
+		          filename.c_str());
 		content.clear();
 	}
 
-	// 5) scriviamo il contenuto nella variabile script
-	script_h.setStr(&script_h.getVariableData(var_no).str, content.c_str());
+	// 5) scrivo il contenuto nella variabile script
+	script_h.setStr(&script_h.getVariableData(var_no).str,
+	                content.c_str());
 
 	return RET_CONTINUE;
 }
