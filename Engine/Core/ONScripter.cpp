@@ -155,6 +155,7 @@ static std::unordered_map<HashedString, CommandFunc> func_lut{
     {"past_label2", &ONScripter::pastLabelCommand},
     {"past_label", &ONScripter::pastLabelCommand},
     {"operate_config", &ONScripter::operateConfigCommand},
+    {"operate_file", &ONScripter::operateFileCommand}, // W_TEST
     {"no_smart_quotes", &ONScripter::nosmartquotesCommand},
     {"nearest_log", &ONScripter::nearestJumpableLogEntryIndexCommand},
     {"moreram", &ONScripter::moreramCommand},

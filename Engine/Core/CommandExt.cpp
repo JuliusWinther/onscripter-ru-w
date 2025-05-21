@@ -1994,6 +1994,40 @@ int ONScripter::operateConfigCommand() {
 	return RET_CONTINUE;
 }
 
+int ONScripter::operateFileCommand() { // W_TEST
+	// Syntax in script: operate_file, "path/to/file.txt", $dst
+
+	// 1) leggiamo il nome del comando (dovrebbe essere "file" o "operate_file")
+	std::string op = script_h.readName();
+
+	// 2) leggiamo la stringa con il path del file
+	std::string filename = script_h.readStr();
+
+	// 3) prepariamo la variabile di destinazione esattamente come nel 'read'
+	script_h.readVariable();
+	script_h.pushVariable();
+	int var_no = script_h.pushed_variable.var_no;
+
+	// 4) proviamo ad aprire e leggere tutto il contenuto
+	std::string content;
+	size_t filesize = 0;
+	uint8_t *buf    = FileIO::readFile(filename.c_str(), &filesize);
+	if (buf != nullptr) {
+		// costruiamo la stringa a partire dal buffer
+		content.assign(reinterpret_cast<char *>(buf), filesize);
+		FileIO::freeFile(buf); // oppure 'free(buf)' a seconda della tua API
+	} else {
+		// in caso di errore, logghiamo e mettiamo stringa vuota
+		sendToLog(LogLevel::Error, "operate_file: impossibile aprire '%s'\n", filename.c_str());
+		content.clear();
+	}
+
+	// 5) scriviamo il contenuto nella variabile script
+	script_h.setStr(&script_h.getVariableData(var_no).str, content.c_str());
+
+	return RET_CONTINUE;
+}
+
 int ONScripter::nosmartquotesCommand() {
 	sentence_font.resetSmartQuotes();
 	name_font.resetSmartQuotes();

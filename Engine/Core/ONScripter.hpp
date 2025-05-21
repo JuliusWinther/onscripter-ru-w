@@ -262,6 +262,7 @@ public:
 	int pastLogCommand();
 	int pastLabelCommand();
 	int operateConfigCommand();
+	int operateFileCommand(); // W_TEST
 	int nearestJumpableLogEntryIndexCommand();
 	int nosmartquotesCommand();
 	int moreramCommand();
