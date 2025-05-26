@@ -56,21 +56,23 @@ void ObjectFallLayer::setAmplifiers(float s, float w, float h, float r, float m)
 	assert(heightAmplifier > 0);
 }
 
-void ObjectFallLayer::setAmount(uint32_t dropNum) {
-	// Applies to each size
+void ObjectFallLayer::setAmount(uint32_t dropNum) { // W_UBUNTU
+	// Se c'è randomAmplifier, moltiplica
 	if (randomAmplifier != 0)
 		dropNum *= 3;
-
 	dropAmount = dropNum;
-	dropSpawnOrder.clear();
 
-	// Create the drop spawn order list.
-	// This specifies the order of the positions along the sky axis to make the drops fall from.
-	// By having a shuffled list rather than just using a rand function to determine the position, we aim for greater "evenness" and avoid empty spots.
-	for (uint32_t i = 0; i < dropNum; i++) dropSpawnOrder.emplace_back(i);
-	std::random_device rng;
-	std::default_random_engine urng(rng());
-	std::shuffle(dropSpawnOrder.begin(), dropSpawnOrder.end(), urng);
+	// Ricostruisci la lista 0…dropNum-1
+	dropSpawnOrder.clear();
+	for (uint32_t i = 0; i < dropNum; i++)
+		dropSpawnOrder.emplace_back(i);
+
+	// Fisher–Yates manuale
+	static thread_local std::mt19937 rng{std::random_device{}()};
+	for (size_t i = dropSpawnOrder.size(); i > 1; --i) {
+		uint32_t j = static_cast<uint32_t>(rng()) % i;
+		std::swap(dropSpawnOrder[i - 1], dropSpawnOrder[j]);
+	}
 }
 
 void ObjectFallLayer::setWind(int32_t factor) {
@@ -80,7 +82,7 @@ void ObjectFallLayer::setWind(int32_t factor) {
 	//    ___//__                                 | /\φ|           the drops fall from top to bottom ("fall axis")
 	//   |  //   |               -->         left ./||\. right     exactly parallel to left and right
 	//   .__/θ)__|                                |\vv/|           and between the bounds left and right ("sky axis")
-	//top^  |/                                    |_\/_|
+	// top^  |/                                    |_\/_|
 	//   =(0,1080)                                  bottom         φ = 135° % 90 = 45°
 
 	MathVector<float> corners[]{MathVector<float>(0, 0),
@@ -133,7 +135,7 @@ void ObjectFallLayer::setBaseDrop(GPU_Image *newBaseDrop) {
 
 void ObjectFallLayer::setBaseDrop(SDL_Color &colour, uint32_t w, uint32_t h) {
 	drops.clear();
-	//TODO: add some gradients?
+	// TODO: add some gradients?
 	if (baseDrop->w != w || baseDrop->h != h) {
 		gpu.freeImage(baseDrop);
 		baseDrop = gpu.createImage(baseDropWidth, baseDropHeight, 4);
@@ -260,7 +262,7 @@ void ObjectFallLayer::refresh(GPU_Target *target, GPU_Rect &clip, float x, float
 }
 
 void ObjectFallLayer::commit() {
-	//sendToLog(LogLevel::Info, "Time to commit ObjectFallLayer\n");
+	// sendToLog(LogLevel::Info, "Time to commit ObjectFallLayer\n");
 	if (paused[CurrentScene] != paused[FormerScene]) {
 		old_drops.unset();
 		paused[FormerScene] = paused[CurrentScene];
