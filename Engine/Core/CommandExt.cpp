@@ -1994,7 +1994,7 @@ int ONScripter::operateConfigCommand() {
 	return RET_CONTINUE;
 }
 
-int ONScripter::operateFileCommand() {
+int ONScripter::operateFileCommand() { // W_TEST
 	// Syntax: operate_file, "path/to/file.txt", $dst
 
 	// 1) leggiamo (e ignoriamo) il nome del comando
