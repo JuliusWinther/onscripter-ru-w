@@ -772,23 +772,25 @@ case $(getHost) in
             warn "Using outdated 10.6 SDK, packages like SDL2 will not build"
         fi
 
-        if [ ! -d "${IOS_SDK_PATH}/iPhoneOS${IOS_SDK}.sdk" ]; then
-            #warn "Failed to find a specified iOS SDK, performing a search"
-            IOS_SDK=""
+        if [[ "$(getTarget)" == "darwin-iOS" ]]; then
+            if [ ! -d "${IOS_SDK_PATH}/iPhoneOS${IOS_SDK}.sdk" ]; then
+                #warn "Failed to find a specified iOS SDK, performing a search"
+                IOS_SDK=""
 
-            for i in {8..15}; do
-                for j in {0..6}; do
-                    if [ -d "${IOS_SDK_PATH}/iPhoneOS${i}.${j}.sdk" ]; then
-                        IOS_SDK="${i}.${j}"
-                    fi
+                for i in {8..15}; do
+                    for j in {0..6}; do
+                        if [ -d "${IOS_SDK_PATH}/iPhoneOS${i}.${j}.sdk" ]; then
+                            IOS_SDK="${i}.${j}"
+                        fi
+                    done
                 done
-            done
 
-            if [ "${IOS_SDK}" == "" ]; then
-                error_out "No installed iOS SDK found, cannot continue"
+                if [ "${IOS_SDK}" == "" ]; then
+                    error_out "No installed iOS SDK found, cannot continue"
+                fi
+
+                #msg "Search succeeded with ${MAC_SDK} SDK"
             fi
-
-            #msg "Search succeeded with ${MAC_SDK} SDK"
         fi
     ;;
 esac
