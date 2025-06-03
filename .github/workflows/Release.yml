@@ -116,7 +116,7 @@ jobs:
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: macos-11
+    runs-on: macos-latest
     strategy:
       matrix:
         BUILD_TYPE: ["Debug", "Release"]
@@ -137,19 +137,6 @@ jobs:
           echo "Build number ${BUILD}"
           echo "BUILD=${BUILD}" >> $GITHUB_ENV
           mkdir -p ciout
-
-      #- name: Install Xcode 9.2
-      #  run: |
-      #    curl -O https://ia904502.us.archive.org/8/items/xcode-9.2/Xcode_9.2.xip
-      #    mkdir -p ~/Xcode9.2
-      #    tar -xf Xcode_9.2.xip -C ~/Xcode9.2 --strip-components 1
-  
-      #- name: Use Xcode 9.2
-      #  run: sudo xcode-select -s ~/Xcode9.2/Xcode.app/Contents/Developer
-        
-      #- name: Print Xcode version
-      #  run: |
-      #    xcodebuild -version
       
       - name: Build
         run: |
