@@ -2001,25 +2001,35 @@ int ONScripter::operateFileCommand() { // W_TEST
 	script_h.readName();
 
 	// 2) stringa con il path
-	std::string filename = script_h.readStr();
+	std::string original_filename_from_script = script_h.readStr();
+	std::string path_to_open = original_filename_from_script;
 
 	// 3) prepariamo la variabile di destinazione
 	script_h.readVariable();
 	script_h.pushVariable();
 	int var_no = script_h.pushed_variable.var_no;
 
+	// Resolve path using completePath
+	char* completed_path_c_str = script_h.reader->completePath(original_filename_from_script.c_str(), FileType::File);
+	if (completed_path_c_str) {
+		path_to_open = completed_path_c_str;
+		freearr(&completed_path_c_str);
+	} else {
+		sendToLog(LogLevel::Info, "operate_file: completePath did not resolve '%s', attempting as direct path.\n", original_filename_from_script.c_str());
+	}
+
 	// 4) apriamo e leggiamo file in un vector<uint8_t>
 	size_t filesize = 0;
 	std::vector<uint8_t> buffer;
 	std::string content;
 
-	if (FileIO::readFile(filename, filesize, buffer)) {
+	if (FileIO::readFile(path_to_open, filesize, buffer)) {
 		// Copio i byte dal vector in una std::string
 		content.assign(reinterpret_cast<const char *>(buffer.data()), filesize);
 	} else {
 		sendToLog(LogLevel::Error,
-		          "operate_file: impossibile aprire '%s'\n",
-		          filename.c_str());
+		          "operate_file: impossibile aprire '%s' (percorso tentato: '%s')\n",
+		          original_filename_from_script.c_str(), path_to_open.c_str());
 		content.clear();
 	}
 
