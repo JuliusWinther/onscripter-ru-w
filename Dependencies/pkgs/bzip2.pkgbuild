@@ -39,7 +39,10 @@ build() {
 
     msg "Compiling %s" "$pkgname"
     export CFLAGS="$CFLAGS ${cflags[@]}"
-    export LDFLAGS="$LDFLAGS ${ldflags[@]}"
+    # Explicitly add the SDK's usr/lib path for i386 linking
+    # The MAC_SDK_PATH and MAC_SDK variables are from the parent build.sh script
+    local sdk_usr_lib_path="${MAC_SDK_PATH}/MacOSX${MAC_SDK}.sdk/usr/lib"
+    export LDFLAGS="$LDFLAGS ${ldflags[@]} -L${sdk_usr_lib_path}"
     compile
 
     msg "Installing %s" "$pkgname"
