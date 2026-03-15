@@ -140,7 +140,7 @@ void ONScripter::initBreakup(BreakupID id, GPU_Image *src, GPU_Rect *src_rect) {
 	// sendToLog(LogLevel::Info,"breakup called with breakup factor %u and canvas_w/h %u %u\n", breakupFactor, ons.canvas_width, ons.canvas_height);
 	int cellFactor = ons.new_breakup_implementation ? BREAKUP_CELLSEPARATION : BREAKUP_CELLWIDTH;
 	int w{0}, h{0};
-	if (id.type == BreakupType::SPRITE_TIGHTFIT && ons.new_breakup_implementation) {
+	if ((id.type == BreakupType::SPRITE_TIGHTFIT || id.type == BreakupType::BUTTERFLY_SPRITE_TIGHTFIT) && ons.new_breakup_implementation) {
 		if (src_rect) {
 			w = src_rect->w;
 			h = src_rect->h;
