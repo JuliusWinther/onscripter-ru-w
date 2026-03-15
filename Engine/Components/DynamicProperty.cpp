@@ -305,6 +305,8 @@ double DynamicPropertyController::DynamicSpriteProperty::getValue() {
 		case SPRITE_PROPERTY_BLUR: return ai->spriteTransforms.blurFactor;
 		case SPRITE_PROPERTY_BREAKUP: return ai->spriteTransforms.breakupFactor;
 		case SPRITE_PROPERTY_BREAKUP_DIRECTION: return ai->spriteTransforms.breakupDirectionFlagset;
+		case SPRITE_PROPERTY_BUTTERFLYBREAKUP: return ai->spriteTransforms.butterflyBreakupFactor;
+		case SPRITE_PROPERTY_BUTTERFLYBREAKUP_DIRECTION: return ai->spriteTransforms.butterflyBreakupDirectionFlagset;
 		case SPRITE_PROPERTY_QUAKE_X_MULTIPLIER: return ai->camera.x_move.multiplier;
 		case SPRITE_PROPERTY_QUAKE_X_AMPLITUDE: return ai->camera.x_move.getAmplitude();
 		case SPRITE_PROPERTY_QUAKE_X_CYCLE_TIME: return ai->camera.x_move.cycleTime;
@@ -359,6 +361,8 @@ void DynamicPropertyController::DynamicSpriteProperty::setValue(double value) {
 			case SPRITE_PROPERTY_BLUR: curAi->spriteTransforms.blurFactor = value; break;
 			case SPRITE_PROPERTY_BREAKUP: curAi->spriteTransforms.breakupFactor = value; break;
 			case SPRITE_PROPERTY_BREAKUP_DIRECTION: curAi->spriteTransforms.breakupDirectionFlagset = value; break;
+			case SPRITE_PROPERTY_BUTTERFLYBREAKUP: curAi->spriteTransforms.butterflyBreakupFactor = value; break;
+			case SPRITE_PROPERTY_BUTTERFLYBREAKUP_DIRECTION: curAi->spriteTransforms.butterflyBreakupDirectionFlagset = value; break;
 			case SPRITE_PROPERTY_QUAKE_X_MULTIPLIER: curAi->camera.x_move.multiplier = value; break;
 			case SPRITE_PROPERTY_QUAKE_X_AMPLITUDE: curAi->camera.x_move.setAmplitude(value); break;
 			case SPRITE_PROPERTY_QUAKE_X_CYCLE_TIME: curAi->camera.x_move.cycleTime = value; break;
@@ -537,6 +541,8 @@ double DynamicPropertyController::DynamicSpritesetProperty::getValue() {
 		case SPRITESET_PROPERTY_BLUR: return ons.spritesets[spriteset_number].blur;
 		case SPRITESET_PROPERTY_BREAKUP: return ons.spritesets[spriteset_number].breakupFactor;
 		case SPRITESET_PROPERTY_BREAKUP_DIRECTION: return ons.spritesets[spriteset_number].breakupFactor ? 1 : 2;
+		case SPRITESET_PROPERTY_BUTTERFLYBREAKUP: return ons.spritesets[spriteset_number].butterflyBreakupFactor;
+		case SPRITESET_PROPERTY_BUTTERFLYBREAKUP_DIRECTION: return ons.spritesets[spriteset_number].butterflyBreakupDirectionFlagset;
 		case SPRITESET_PROPERTY_PIXELATE: return ons.spritesets[spriteset_number].pixelateFactor;
 		case SPRITESET_PROPERTY_WARP_AMPLITUDE: return ons.spritesets[spriteset_number].warpAmplitude;
 		case SPRITESET_PROPERTY_WARP_WAVELENGTH: return ons.spritesets[spriteset_number].warpWaveLength;
@@ -559,6 +565,8 @@ void DynamicPropertyController::DynamicSpritesetProperty::setValue(double value)
 		case SPRITESET_PROPERTY_BLUR: ons.spritesets[spriteset_number].blur = value; break;
 		case SPRITESET_PROPERTY_BREAKUP: ons.spritesets[spriteset_number].breakupFactor = value; break;
 		case SPRITESET_PROPERTY_BREAKUP_DIRECTION: ons.spritesets[spriteset_number].breakupDirectionFlagset = value; break;
+		case SPRITESET_PROPERTY_BUTTERFLYBREAKUP: ons.spritesets[spriteset_number].butterflyBreakupFactor = value; break;
+		case SPRITESET_PROPERTY_BUTTERFLYBREAKUP_DIRECTION: ons.spritesets[spriteset_number].butterflyBreakupDirectionFlagset = value; break;
 		case SPRITESET_PROPERTY_PIXELATE: ons.spritesets[spriteset_number].pixelateFactor = value; break;
 		case SPRITESET_PROPERTY_WARP_AMPLITUDE: ons.spritesets[spriteset_number].warpAmplitude = value; break;
 		case SPRITESET_PROPERTY_WARP_WAVELENGTH: ons.spritesets[spriteset_number].warpWaveLength = value; break;

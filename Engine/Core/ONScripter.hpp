@@ -1312,6 +1312,13 @@ private:
 	void effectBreakupOld(BreakupID id, int breakupFactor);
 
 	/* ---------------------------------------- */
+	/* Butterfly breakup related */
+	GPU_Image *butterfly_cellforms_gpu{nullptr};
+	int butterfly_frame_w{0}, butterfly_frame_h{0};
+	void buildButterflyCellforms();
+	void effectButterflyBreakupParser(const char *params, int refresh_mode_src, int refresh_mode_dst);
+
+	/* ---------------------------------------- */
 	/* Glass smash related */
 
 	bool new_glass_smash_implementation{true};

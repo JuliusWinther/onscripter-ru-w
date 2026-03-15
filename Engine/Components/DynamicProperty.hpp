@@ -78,13 +78,15 @@ enum {
 	SPRITE_PROPERTY_SCROLLABLE_W       = 23,
 	SPRITE_PROPERTY_SCROLLABLE_Y       = 24,
 	SPRITE_PROPERTY_SCROLLABLE_X       = 25,
-	SPRITE_PROPERTY_FLIP_MODE          = 26,
-	SPRITE_PROPERTY_Z_ORDER            = 27
+	SPRITE_PROPERTY_FLIP_MODE                    = 26,
+	SPRITE_PROPERTY_Z_ORDER                      = 27,
+	SPRITE_PROPERTY_BUTTERFLYBREAKUP_DIRECTION   = 28,
+	SPRITE_PROPERTY_BUTTERFLYBREAKUP             = 29
 };
 // keep this in sync with the above enum.
 const std::vector<const char *> dynamicSpritePropertyNames{"none", "xpos", "ypos", "alpha", "darken_r", "darken_g", "darken_b", "scalex", "scaley", "rot", "blur", "breakupdir",
                                                            "breakup", "quakexmul", "quakexamp", "quakexcycle", "quakeymul", "quakeyamp", "quakeycycle", "warp_spd", "warp_wave",
-                                                           "warp_amp", "scroll_h", "scroll_w", "scroll_y", "scroll_x", "flip"};
+                                                           "warp_amp", "scroll_h", "scroll_w", "scroll_y", "scroll_x", "flip", "zorder", "butterflybreakupdir", "butterflybreakup"};
 
 enum {
 	GLOBAL_PROPERTY_NONE               = 0,
@@ -128,10 +130,12 @@ enum {
 	SPRITESET_PROPERTY_SCALE_X           = 13,
 	SPRITESET_PROPERTY_SCALE_Y           = 14,
 	SPRITESET_PROPERTY_ROTATION_ANGLE    = 15,
-	SPRITESET_PROPERTY_FLIP_MODE         = 16
+	SPRITESET_PROPERTY_FLIP_MODE                    = 16,
+	SPRITESET_PROPERTY_BUTTERFLYBREAKUP_DIRECTION   = 17,
+	SPRITESET_PROPERTY_BUTTERFLYBREAKUP             = 18
 };
 const std::vector<const char *> dynamicSpritesetPropertyNames{"none", "xpos", "ypos", "alpha", "blur", "breakupdir", "breakup", "pixelate", "warp_spd", "warp_wave", "warp_amp",
-                                                              "centrex", "centrey", "scalex", "scaley", "rot", "flip"};
+                                                              "centrex", "centrey", "scalex", "scaley", "rot", "flip", "butterflybreakupdir", "butterflybreakup"};
 
 struct DynamicPropertyInterface {
 	double (*getValue)(void *);

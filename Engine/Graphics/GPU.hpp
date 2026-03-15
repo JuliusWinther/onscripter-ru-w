@@ -576,6 +576,13 @@ public:
 	                                const char *params);
 	void drawUnbrokenBreakupRegions(BreakupID id, float dstX, float dstY);
 
+	void butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect *src_rect, GPU_Target *target,
+	                           int breakupFactor, int breakupDirectionFlagset, const char *params,
+	                           float dstX, float dstY);
+	PooledGPUImage getButterflyBrokenUpImage(GPUTransformableCanvasImage &im, BreakupID id,
+	                                         int breakupFactor, int breakupDirectionFlagset,
+	                                         const char *params);
+
 	void glassSmashImage(GPU_Image *src, GPU_Target *dst, int smashFactor);
 	PooledGPUImage getGlassSmashedImage(GPUTransformableCanvasImage &im, int smashFactor);
 

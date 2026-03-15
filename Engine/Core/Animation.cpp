@@ -548,12 +548,13 @@ void ONScripter::drawSpritesetToGPUTarget(GPU_Target *target, SpritesetInfo *spr
 	/*myClip.x += spriteset->pos.x;
 	myClip.y += spriteset->pos.y;*/
 
-	bool blur     = spriteset->blur > 0;
-	bool mask     = spriteset->maskSpriteNumber != -1;
-	bool breakup  = spriteset->breakupFactor > 0;
-	bool pixelate = spriteset->pixelateFactor > 0;
-	bool warp     = spriteset->warpAmplitude != 0;
-	bool any      = blur || mask || breakup || pixelate || warp;
+	bool blur              = spriteset->blur > 0;
+	bool mask              = spriteset->maskSpriteNumber != -1;
+	bool breakup           = spriteset->breakupFactor > 0;
+	bool butterflyBreakup  = spriteset->butterflyBreakupFactor > 0;
+	bool pixelate          = spriteset->pixelateFactor > 0;
+	bool warp              = spriteset->warpAmplitude != 0;
+	bool any               = blur || mask || breakup || butterflyBreakup || pixelate || warp;
 
 	auto &ssim     = rm & REFRESH_BEFORESCENE_MODE ? spriteset->im : spriteset->imAfterscene;
 	GPU_Image *src = ssim.image;
@@ -568,6 +569,10 @@ void ONScripter::drawSpritesetToGPUTarget(GPU_Target *target, SpritesetInfo *spr
 		if (breakup) {
 			GPUTransformableCanvasImage tmp(toDraw.image);
 			toDraw = gpu.getBrokenUpImage(toDraw.image ? tmp : ssim, {{BreakupType::SPRITESET, static_cast<int16_t>(spriteset->id)}}, spriteset->breakupFactor, spriteset->breakupDirectionFlagset, nullptr);
+		}
+		if (butterflyBreakup) {
+			GPUTransformableCanvasImage tmp(toDraw.image);
+			toDraw = gpu.getButterflyBrokenUpImage(toDraw.image ? tmp : ssim, {{BreakupType::BUTTERFLY_SPRITESET, static_cast<int16_t>(spriteset->id)}}, spriteset->butterflyBreakupFactor, spriteset->butterflyBreakupDirectionFlagset, nullptr);
 		}
 		if (pixelate) {
 			GPUTransformableCanvasImage tmp(toDraw.image);
@@ -1247,12 +1252,13 @@ void ONScripter::drawToGPUTarget(GPU_Target *target, AnimationInfo *info, int re
 
 	bool needTransformationImage{true};
 	BreakupID breakupID{{BreakupType::NONE, 0}};
+	BreakupID butterflyBreakupID{{BreakupType::NONE, 0}};
 	if (info->spriteTransforms.hasNoneExceptMaybeBreakup()) {
 		// We might be able to get away without a transformation image, but let's consider breakup carefully first.
-		if (info->spriteTransforms.breakupFactor == 0) {
+		if (info->spriteTransforms.breakupFactor == 0 && info->spriteTransforms.butterflyBreakupFactor == 0) {
 			// No breakup either! Great! No transformation image required.
 			needTransformationImage = false;
-		} else {
+		} else if (info->spriteTransforms.breakupFactor != 0) {
 			// OK, we have breakup... we might need a secondary image still.
 			breakupID.id = info->id;
 			if (!ons.new_breakup_implementation) {
@@ -1274,6 +1280,18 @@ void ONScripter::drawToGPUTarget(GPU_Target *target, AnimationInfo *info, int re
 					breakupID.type          = BreakupType::SPRITE_TIGHTFIT;
 					needTransformationImage = false;
 				}
+			}
+		} else if (info->spriteTransforms.butterflyBreakupFactor != 0) {
+			// Butterfly breakup — same optimization logic as regular breakup
+			butterflyBreakupID.id = info->id;
+			bool breakupTightfits = info->rot == 0 && info->scale_x == 100 && info->scale_y == 100 && info->flip == 0 && info->layer_no == -1;
+			if (!breakupTightfits) {
+				butterflyBreakupID.type = BreakupType::BUTTERFLY_SPRITE_CANVAS;
+			} else if (opacityTransform) {
+				butterflyBreakupID.type = BreakupType::BUTTERFLY_SPRITE_TIGHTFIT;
+			} else {
+				butterflyBreakupID.type = BreakupType::BUTTERFLY_SPRITE_TIGHTFIT;
+				needTransformationImage = false;
 			}
 		}
 	}
@@ -1393,6 +1411,10 @@ void ONScripter::drawToGPUTarget(GPU_Target *target, AnimationInfo *info, int re
 			gpu.breakUpImage(breakupID, src, &clip_rect, dst, info->spriteTransforms.breakupFactor,
 			                 info->spriteTransforms.breakupDirectionFlagset, nullptr, coord_x - info->pos.w / 2,
 			                 coord_y - info->pos.h / 2);
+		} else if (butterflyBreakupID.type == BreakupType::BUTTERFLY_SPRITE_TIGHTFIT) {
+			gpu.butterflyBreakUpImage(butterflyBreakupID, src, &clip_rect, dst, info->spriteTransforms.butterflyBreakupFactor,
+			                          info->spriteTransforms.butterflyBreakupDirectionFlagset, nullptr, coord_x - info->pos.w / 2,
+			                          coord_y - info->pos.h / 2);
 		} else {
 			bool allowDirectCopy{false};
 
@@ -1456,6 +1478,12 @@ void ONScripter::drawToGPUTarget(GPU_Target *target, AnimationInfo *info, int re
 			src    = toDraw.image;
 			// We (have) set a larger clip for this in dirtySpriteRect to ensure we are called with a large enough clip
 		}
+		if (butterflyBreakupID.type == BreakupType::BUTTERFLY_SPRITE_CANVAS) {
+			GPUTransformableCanvasImage tmp(src);
+			toDraw = gpu.getButterflyBrokenUpImage(tmp, butterflyBreakupID, info->spriteTransforms.butterflyBreakupFactor,
+			                                       info->spriteTransforms.butterflyBreakupDirectionFlagset, nullptr);
+			src    = toDraw.image;
+		}
 		if (info->spriteTransforms.warpAmplitude != 0) {
 			GPUTransformableCanvasImage tmp(src);
 			float secs = info->spriteTransforms.warpClock.time() / 1000.0;
@@ -1496,6 +1524,8 @@ void ONScripter::commitVisualState() {
 		i->commitState();
 		deinitBreakup({{BreakupType::SPRITE_TIGHTFIT, static_cast<int16_t>(i->id)}});
 		deinitBreakup({{BreakupType::SPRITE_CANVAS, static_cast<int16_t>(i->id)}});
+		deinitBreakup({{BreakupType::BUTTERFLY_SPRITE_TIGHTFIT, static_cast<int16_t>(i->id)}});
+		deinitBreakup({{BreakupType::BUTTERFLY_SPRITE_CANVAS, static_cast<int16_t>(i->id)}});
 	}
 
 	for (auto &i : spritesets) {

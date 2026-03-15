@@ -149,6 +149,8 @@ public:
 		int blurFactor{0};
 		int breakupFactor{0};
 		int breakupDirectionFlagset{0};
+		int butterflyBreakupFactor{0};
+		int butterflyBreakupDirectionFlagset{0};
 		Clock warpClock;
 		float warpSpeed{0};
 		float warpWaveLength{1000};

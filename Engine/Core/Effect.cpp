@@ -255,6 +255,8 @@ bool ONScripter::doEffect() {
 					effectTrvswave(params, effect_duration);
 				} else if (!std::strncmp(dll, "breakup.dll", std::strlen("breakup.dll"))) {
 					effectBreakupParser(params, refresh_mode_src, refresh_mode_dst);
+				} else if (!std::strncmp(dll, "butterflybreakup.dll", std::strlen("butterflybreakup.dll"))) {
+					effectButterflyBreakupParser(params, refresh_mode_src, refresh_mode_dst);
 				} else if (!std::strncmp(dll, "glass.dll", std::strlen("glass.dll"))) {
 					if (new_glass_smash_implementation)
 						effectBrokenGlassParser(params, refresh_mode_src, refresh_mode_dst);
@@ -380,6 +382,14 @@ void ONScripter::effectBreakupParser(const char *params, int refresh_mode_src, i
 
 	sendToPreScreen(refreshSrc, [breakupValue, params](GPUTransformableCanvasImage &transform) { return gpu.getBrokenUpImage(transform, {{BreakupType::GLOBAL, 0}}, breakupValue,
 		                                                                                                                     BREAKUP_MODE_LEFT, params); }, refresh_mode_src, refresh_mode_dst);
+}
+
+void ONScripter::effectButterflyBreakupParser(const char *params, int refresh_mode_src, int refresh_mode_dst) {
+	bool refreshSrc  = params[2] != 'p' && params[2] != 'P';
+	int breakupValue = refreshSrc ? 1000 * effect_counter / effect_duration : 1000 - (1000 * effect_counter / effect_duration);
+
+	sendToPreScreen(refreshSrc, [breakupValue, params](GPUTransformableCanvasImage &transform) { return gpu.getButterflyBrokenUpImage(transform, {{BreakupType::BUTTERFLY_GLOBAL, 0}}, breakupValue,
+		                                                                                                                              BREAKUP_MODE_LEFT, params); }, refresh_mode_src, refresh_mode_dst);
 }
 
 void ONScripter::effectBrokenGlassParser(const char *params, int refresh_mode_src, int refresh_mode_dst) {

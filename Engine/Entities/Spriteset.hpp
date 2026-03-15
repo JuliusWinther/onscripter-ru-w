@@ -25,6 +25,8 @@ public:
 	int breakupFactor{0};
 	int pixelateFactor{0};
 	int breakupDirectionFlagset{0};
+	int butterflyBreakupFactor{0};
+	int butterflyBreakupDirectionFlagset{0};
 	Clock warpClock;
 	float warpSpeed{0};
 	float warpWaveLength{1000};
@@ -37,7 +39,7 @@ public:
 	GPUTransformableCanvasImage im, imAfterscene;
 	bool isNullTransform() {
 		return pos.x == 0 && pos.y == 0 && maskSpriteNumber == -1 &&
-		       trans >= 255 && blur == 0 && breakupFactor == 0 && pixelateFactor == 0 &&
+		       trans >= 255 && blur == 0 && breakupFactor == 0 && butterflyBreakupFactor == 0 && pixelateFactor == 0 &&
 		       !warpAmplitude && warpWaveLength == 1000 &&
 		       rot == 0 && scale_x == 100 && scale_y == 100;
 	}

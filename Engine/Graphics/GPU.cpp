@@ -1051,6 +1051,107 @@ PooledGPUImage GPUController::getBrokenUpImage(GPUTransformableCanvasImage &im, 
 	return newImage;
 }
 
+void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect *src_rect,
+                                          GPU_Target *target, int breakupFactor,
+                                          int breakupDirectionFlagset, const char *params,
+                                          float dstX, float dstY) {
+	if (!src) {
+		sendToLog(LogLevel::Error, "No image to butterfly break up!\n");
+		return;
+	}
+
+	if (breakupFactor == 0) {
+		copyGPUImage(src, nullptr, nullptr, target, dstX, dstY);
+		return;
+	}
+
+	paramsToBreakupDirectionFlagset(params, breakupDirectionFlagset);
+
+	if (ons.breakupInitRequired(id)) {
+		ons.initBreakup(id, src, src_rect);
+		if (ons.new_breakup_implementation) {
+			ons.breakupData[id].blitter.set(createTriangleBlitter(src, target));
+		}
+	}
+
+	ons.buildButterflyCellforms();
+	if (!ons.butterfly_cellforms_gpu) {
+		// Fallback to regular breakup if butterfly cellforms failed to generate
+		breakUpImage(id, src, src_rect, target, breakupFactor, breakupDirectionFlagset, params, dstX, dstY);
+		return;
+	}
+
+	ONScripter::BreakupData &data = ons.breakupData[id];
+	BreakupCell *myCells          = data.breakup_cells.data();
+
+	if (ons.new_breakup_implementation) {
+		bool largeImage = src_rect ? (src_rect->w >= window.script_width && src_rect->h >= window.script_height) :
+		                             (src->w >= window.script_width && src->h >= window.script_height);
+		if (!largeImage)
+			setShaderProgram("alphaOutsideTextures.frag");
+		TriangleBlitter &blitter = data.blitter.get();
+
+		blitter.updateTargets(src, target);
+
+		ons.oncePerBreakupEffectBreakupSetup(id, breakupDirectionFlagset, data.numCellsX, data.numCellsY);
+		ons.effectBreakupNew(id, breakupFactor);
+		drawUnbrokenBreakupRegions(id, dstX, dstY);
+
+		// Flush the unbroken regions before drawing butterflies
+		blitter.finish();
+		if (!largeImage)
+			unsetShaderProgram();
+
+		// Now draw butterfly sprites for breaking cells
+		uint32_t ticks = SDL_GetTicks();
+		float fw       = static_cast<float>(ons.butterfly_frame_w);
+		float fh       = static_cast<float>(ons.butterfly_frame_h);
+		float cf       = static_cast<float>(data.cellFactor);
+
+		for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
+			auto &cell = myCells[n];
+			if (cell.diagonal > data.maxDiagonalToContainBrokenCells) {
+				break;
+			}
+			if (cell.resizeFactor > 0 && cell.resizeFactor < 1.0f) {
+				// Compute animation frame staggered across cells
+				int animFrame = static_cast<int>((ticks / 120 + n) % 4);
+				GPU_Rect srcRect{static_cast<float>(animFrame % 2) * fw,
+				                 static_cast<float>(animFrame / 2) * fh, fw, fh};
+
+				float cellCenterX = cell.cell_x * cf + cf / 2.0f;
+				float cellCenterY = cell.cell_y * cf + cf / 2.0f;
+				float scaledW     = fw * cell.resizeFactor;
+				float scaledH     = fh * cell.resizeFactor;
+				float destX       = cellCenterX + cell.disp_x + dstX - scaledW / 2.0f;
+				float destY       = cellCenterY + cell.disp_y + dstY - scaledH / 2.0f;
+
+				// Set alpha based on resizeFactor for smooth fade-out
+				uint8_t alpha = static_cast<uint8_t>(255 * cell.resizeFactor);
+				GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, alpha);
+
+				copyGPUImage(ons.butterfly_cellforms_gpu, &srcRect, nullptr, target,
+				             destX, destY, cell.resizeFactor, cell.resizeFactor);
+			}
+		}
+		// Reset alpha
+		GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
+	} else {
+		// Old implementation fallback: just use regular breakup
+		breakUpImage(id, src, src_rect, target, breakupFactor, breakupDirectionFlagset, params, dstX, dstY);
+	}
+}
+
+PooledGPUImage GPUController::getButterflyBrokenUpImage(GPUTransformableCanvasImage &im, BreakupID id,
+                                                        int breakupFactor, int breakupDirectionFlagset,
+                                                        const char *params) {
+	PooledGPUImage newImage = getPooledImage(window.canvas_width, window.canvas_height);
+
+	butterflyBreakUpImage(id, im.image, nullptr, newImage.image->target, breakupFactor, breakupDirectionFlagset, params, 0, 0);
+
+	return newImage;
+}
+
 void GPUController::glassSmashImage(GPU_Image *src, GPU_Target *target, int smashFactor) {
 	if (!src) {
 		sendToLog(LogLevel::Error, "No image to glass smash!\n");
