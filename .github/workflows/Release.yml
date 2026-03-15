@@ -2,9 +2,9 @@ name: Release
 
 on:
   push:
-    branches: ["master", "test"]
+    branches: ["**"]
   pull_request:
-    branches: ["master", "test"]
+    branches: ["**"]
   workflow_dispatch:
     inputs:
       build_type:
@@ -12,7 +12,12 @@ on:
         required: true
         default: "release"
 
+env:
+  BUILD: ${{ github.run_number }}
+  BRANCH: ${{ github.ref_name }}
+
 jobs:
+
   Windows:
     runs-on: ubuntu-22.04
 
@@ -22,7 +27,6 @@ jobs:
         DISCORD_INTEGRATION: ["using discord", "not using discord"]
 
     env:
-      BUILD: ${{ github.run_number }}
       dev: ${{ matrix.BUILD_TYPE == 'debug' && '_dev' || '' }}
       cmd: ${{ matrix.BUILD_TYPE == 'release' && '--release-build --strip-binary' || '' }}
       discord: ${{ matrix.DISCORD_INTEGRATION == 'using discord' && '--with-discord' || '' }}
@@ -42,6 +46,7 @@ jobs:
       - name: Env setup
         run: |
           echo "Build number ${BUILD}"
+          echo "Branch ${BRANCH}"
           mkdir -p ciout
 
       - name: Configure
@@ -61,16 +66,23 @@ jobs:
           mv DerivedData/MinGW-i686/onscripter-ru.exe ciout
           cp -r Resources/Windows/dlls ciout/dlls
           cd ciout
-          zip -qry onscripter-ru_win_r${BUILD}${{env.dev}}${{env.discord}}.zip onscripter-ru.exe dlls
+          zip -qry onscripter-ru_win_${BRANCH}_r${BUILD}${{env.dev}}${{env.discord}}.zip onscripter-ru.exe dlls
 
       - name: Upload files
+        if: github.event_name == 'push'
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
           replacesArtifacts: false
-          tag: z${{ env.BUILD }}
-          name: ONScripter-ru r${{ env.BUILD }}
+          tag: ${{ env.BRANCH }}-r${{ env.BUILD }}
+          name: ONScripter-ru ${{ env.BRANCH }} r${{ env.BUILD }}
+          body: |
+            Automated build
+
+            Branch: ${{ env.BRANCH }}
+            Commit: ${{ github.sha }}
           artifacts: "ciout/*.zip"
+
 
   Linux:
     runs-on: ubuntu-22.04
@@ -80,7 +92,6 @@ jobs:
         BUILD_TYPE: ["debug", "release"]
 
     env:
-      BUILD: ${{ github.run_number }}
       dev: ${{ matrix.BUILD_TYPE == 'debug' && '_dev' || '' }}
       cmd: ${{ matrix.BUILD_TYPE == 'release' && '--release-build --strip-binary' || '' }}
 
@@ -99,6 +110,7 @@ jobs:
       - name: Env setup
         run: |
           echo "Build number ${BUILD}"
+          echo "Branch ${BRANCH}"
           mkdir -p ciout
 
       - name: Configure
@@ -110,18 +122,25 @@ jobs:
           make -j$(nproc)
           mv DerivedData/Posix-x86_64/onscripter-ru ciout
           cd ciout
-          zip -qry onscripter-ru_linux64_r${BUILD}${{env.dev}}.zip onscripter-ru
+          zip -qry onscripter-ru_linux64_${BRANCH}_r${BUILD}${{env.dev}}.zip onscripter-ru
           rm onscripter-ru
           cd ..
 
       - name: Upload files
+        if: github.event_name == 'push'
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
           replacesArtifacts: false
-          tag: z${{ env.BUILD }}
-          name: ONScripter-ru r${{ env.BUILD }}
+          tag: ${{ env.BRANCH }}-r${{ env.BUILD }}
+          name: ONScripter-ru ${{ env.BRANCH }} r${{ env.BUILD }}
+          body: |
+            Automated build
+
+            Branch: ${{ env.BRANCH }}
+            Commit: ${{ github.sha }}
           artifacts: "ciout/*.zip"
+
 
   macOS:
     runs-on: macos-11
@@ -131,7 +150,6 @@ jobs:
         BUILD_TYPE: ["Debug", "Release"]
 
     env:
-      BUILD: ${{ github.run_number }}
       HOMEBREW_NO_AUTO_UPDATE: 1
       dev: ${{ matrix.BUILD_TYPE == 'Debug' && '_dbg' || '' }}
 
@@ -148,6 +166,7 @@ jobs:
       - name: Env setup
         run: |
           echo "Build number ${BUILD}"
+          echo "Branch ${BRANCH}"
           mkdir -p ciout
 
       - name: Build
@@ -155,15 +174,21 @@ jobs:
           xcodebuild ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO -target onscripter-ru-osx -configuration ${{ matrix.BUILD_TYPE }}
           mv build/${{ matrix.BUILD_TYPE }}/onscripter-ru-osx.app ciout
           cd ciout
-          zip -qry onscripter-ru_osx_r${BUILD}${{ env.dev }}.zip onscripter-ru-osx.app
+          zip -qry onscripter-ru_osx_${BRANCH}_r${BUILD}${{ env.dev }}.zip onscripter-ru-osx.app
           rm -rf onscripter-ru-osx.app
           cd -
 
       - name: Upload files
+        if: github.event_name == 'push'
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
           replacesArtifacts: false
-          tag: z${{ env.BUILD }}
-          name: ONScripter-ru r${{ env.BUILD }}
+          tag: ${{ env.BRANCH }}-r${{ env.BUILD }}
+          name: ONScripter-ru ${{ env.BRANCH }} r${{ env.BUILD }}
+          body: |
+            Automated build
+
+            Branch: ${{ env.BRANCH }}
+            Commit: ${{ github.sha }}
           artifacts: "ciout/*.zip"
