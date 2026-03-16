@@ -48,85 +48,14 @@ void ONScripter::buildButterflyCellforms() {
 	if (butterfly_cellforms_gpu)
 		return;
 
-	// Procedurally generate a 4-frame butterfly sprite sheet (2x2 grid)
-	// Each frame is 32x32 pixels, total sheet is 64x64
-	constexpr int frameSize = 32;
-	constexpr int sheetW    = frameSize * 2;
-	constexpr int sheetH    = frameSize * 2;
-
-	SDL_Surface *sheet = SDL_CreateRGBSurface(SDL_SWSURFACE, sheetW, sheetH, 32,
-	                                          0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
-	if (!sheet)
-		return;
-
-	SDL_FillRect(sheet, nullptr, SDL_MapRGBA(sheet->format, 0, 0, 0, 0));
-
-	// Wing spread angles for 4 animation frames (in degrees from horizontal)
-	const float wingAngles[4] = {25.0f, 45.0f, 65.0f, 45.0f};
-
-	for (int frame = 0; frame < 4; frame++) {
-		int ox = (frame % 2) * frameSize + frameSize / 2; // center x of this frame
-		int oy = (frame / 2) * frameSize + frameSize / 2; // center y of this frame
-		float wingAngle = wingAngles[frame] * static_cast<float>(M_PI) / 180.0f;
-
-		// Draw butterfly as filled elliptical wings + body
-		for (int py = 0; py < frameSize; py++) {
-			for (int px = 0; px < frameSize; px++) {
-				float dx = static_cast<float>(px - frameSize / 2);
-				float dy = static_cast<float>(py - frameSize / 2);
-
-				// Body: thin vertical ellipse
-				bool isBody = (dx * dx / 1.5f + dy * dy / 100.0f) < 1.0f;
-
-				// Wings: two mirrored ellipses rotated by wingAngle
-				// Right wing
-				float cosA  = std::cos(wingAngle);
-				float sinA  = std::sin(wingAngle);
-				float rwx   = dx * cosA + dy * sinA;  // rotated coords
-				float rwy   = -dx * sinA + dy * cosA;
-				bool isRightWing = dx >= 0 && (rwx * rwx / 144.0f + rwy * rwy / 36.0f) < 1.0f;
-
-				// Left wing (mirrored)
-				float lwx   = -dx * cosA + dy * sinA;
-				float lwy   = dx * sinA + dy * cosA;
-				bool isLeftWing = dx <= 0 && (lwx * lwx / 144.0f + lwy * lwy / 36.0f) < 1.0f;
-
-				if (isBody || isRightWing || isLeftWing) {
-					// Golden color with slight variation for depth
-					float dist = std::sqrt(dx * dx + dy * dy) / (frameSize / 2.0f);
-					uint8_t r  = static_cast<uint8_t>(std::min(255.0f, 255.0f - dist * 30.0f));
-					uint8_t g  = static_cast<uint8_t>(std::min(255.0f, 200.0f - dist * 40.0f));
-					uint8_t b  = static_cast<uint8_t>(std::min(255.0f, 50.0f + dist * 20.0f));
-					uint8_t a  = isBody ? 255 : static_cast<uint8_t>(220 - dist * 40);
-
-					// Edge softening
-					float edgeDist = 1.0f;
-					if (isRightWing) {
-						edgeDist = 1.0f - (rwx * rwx / 144.0f + rwy * rwy / 36.0f);
-					} else if (isLeftWing) {
-						edgeDist = 1.0f - (lwx * lwx / 144.0f + lwy * lwy / 36.0f);
-					}
-					if (edgeDist < 0.15f && !isBody) {
-						a = static_cast<uint8_t>(a * edgeDist / 0.15f);
-					}
-
-					int sx = ox - frameSize / 2 + px;
-					int sy = oy - frameSize / 2 + py;
-					if (sx >= 0 && sx < sheetW && sy >= 0 && sy < sheetH) {
-						uint32_t *pixels = static_cast<uint32_t *>(sheet->pixels);
-						pixels[sy * sheetW + sx] = SDL_MapRGBA(sheet->format, r, g, b, a);
-					}
-				}
-			}
-		}
-	}
-
-	butterfly_cellforms_gpu = gpu.copyImageFromSurface(sheet);
-	SDL_FreeSurface(sheet);
+	// Load butterfly sprite sheet from embedded resource
+	// Sprite sheet: 4 horizontal frames, each 24x24 pixels (total 96x24)
+	// Butterfly oriented toward upper-left
+	butterfly_cellforms_gpu = loadGpuImage("butterfly-cellforms.png");
 
 	if (butterfly_cellforms_gpu) {
-		butterfly_frame_w = frameSize;
-		butterfly_frame_h = frameSize;
+		butterfly_frame_w = butterfly_cellforms_gpu->w / 4; // 24px per frame
+		butterfly_frame_h = butterfly_cellforms_gpu->h;     // 24px
 		GPU_SetImageFilter(butterfly_cellforms_gpu, GPU_FILTER_LINEAR);
 		GPU_SetBlending(butterfly_cellforms_gpu, true);
 	}

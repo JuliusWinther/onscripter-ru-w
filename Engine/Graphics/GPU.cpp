@@ -1092,9 +1092,7 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 		ons.effectBreakupNew(id, breakupFactor);
 		drawUnbrokenBreakupRegions(id, dstX, dstY);
 
-		// Draw ALL cells with resizeFactor > 0 as circles through the blitter,
-		// exactly the same way that regular breakup does. This ensures the base
-		// image is always correctly rendered regardless of butterfly overlay.
+		// Render circles IDENTICALLY to regular breakup — this is the base image
 		for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
 			auto &cell = myCells[n];
 			float x{cell.cell_x * static_cast<float>(data.cellFactor)};
@@ -1111,8 +1109,9 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 		if (!largeImage)
 			unsetShaderProgram();
 
-		// Now overlay butterfly sprites on top for breaking cells (0 < resizeFactor < 1).
-		// These replace the visual of the shrinking circles with animated golden butterflies.
+		// Overlay animated butterfly sprites on top of each breaking circle.
+		// Each butterfly is scaled to cover its circle and rotated toward
+		// the direction the circle is moving (computed from disp_x, disp_y).
 		if (ons.butterfly_cellforms_gpu) {
 			uint32_t ticks = SDL_GetTicks();
 			float fw       = static_cast<float>(ons.butterfly_frame_w);
@@ -1125,25 +1124,32 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 					break;
 				}
 				if (cell.resizeFactor > 0 && cell.resizeFactor < 1.0f) {
-					// Compute animation frame staggered across cells
+					// Animation frame: 4 horizontal frames in sprite sheet
 					int animFrame = static_cast<int>((ticks / 120 + n) % 4);
-					GPU_Rect bflyRect{static_cast<float>(animFrame % 2) * fw,
-					                  static_cast<float>(animFrame / 2) * fh, fw, fh};
+					GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
 
-					float cellCenterX = cell.cell_x * cf + cf / 2.0f;
-					float cellCenterY = cell.cell_y * cf + cf / 2.0f;
-					float destX       = cellCenterX + cell.disp_x + dstX - fw * cell.resizeFactor / 2.0f;
-					float destY       = cellCenterY + cell.disp_y + dstY - fh * cell.resizeFactor / 2.0f;
+					// Position at cell center + displacement (centre_coordinates mode)
+					float cellCenterX = cell.cell_x * cf + cf / 2.0f + cell.disp_x + dstX;
+					float cellCenterY = cell.cell_y * cf + cf / 2.0f + cell.disp_y + dstY;
 
-					// Set alpha based on resizeFactor for smooth fade
+					// Rotate butterfly toward its movement direction.
+					// The sprite faces upper-left by default (~-135 degrees).
+					// Desired direction = atan2(disp_y, disp_x), so rotation = desired - (-135).
+					float angle = 0;
+					if (cell.disp_x != 0 || cell.disp_y != 0) {
+						angle = std::atan2(static_cast<float>(cell.disp_y),
+						                   static_cast<float>(cell.disp_x)) * 180.0f / static_cast<float>(M_PI) + 135.0f;
+					}
+
+					// Scale butterfly to cover the circle; fade with resizeFactor
 					uint8_t alpha = static_cast<uint8_t>(255 * cell.resizeFactor);
 					GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, alpha);
 
 					copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
-					             destX, destY, cell.resizeFactor, cell.resizeFactor);
+					             cellCenterX, cellCenterY, cell.resizeFactor, cell.resizeFactor,
+					             angle, true);
 				}
 			}
-			// Reset alpha
 			GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
 		}
 	} else {
