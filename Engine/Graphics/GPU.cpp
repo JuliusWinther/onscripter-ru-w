@@ -1175,18 +1175,13 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			}
 			GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
 
-			// ---- GOLDEN SILHOUETTE ----
-			// Draw settled regions using the gold mask texture (solid gold with
-			// sprite alpha). Uses the same TriangleBlitter / unbroken-region
-			// system as the sprite itself, so the silhouette is pixel-perfect
-			// smooth with no grid artefacts. Builds up progressively following
-			// the diagonal wipe, then fades at the very end to reveal the sprite.
+			// ---- GLOWING GOLDEN SILHOUETTE ----
+			// Three-pass luminous gold silhouette using the gold mask texture:
+			// 1) Base gold layer (normal blending) — solid gold shape
+			// 2) Additive glow pass — same shape, additive blend for radiance
+			// 3) Additive shimmer pass — time-varying brightness for sparkle
+			// Uses TriangleBlitter / unbroken-region system → smooth, no grid.
 			if (data.goldMaskGpu) {
-				// Global fade: silhouette appears while breakup is active, fades
-				// at the end to reveal the actual sprite (compose) or to let
-				// the sprite disappear cleanly (decompose).
-				// Compose  (1000→0): gold at factor 1000..120, fades 120→0
-				// Decompose (0→1000): gold at factor 120..1000, fades at 0..120
 				float globalFade;
 				if (composing)
 					globalFade = std::min(1.0f, breakupFactor / 120.0f);
@@ -1194,10 +1189,10 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 					globalFade = std::min(1.0f, breakupFactor / 120.0f);
 
 				if (globalFade > 0.01f) {
-					// Swap the blitter source to the gold mask, draw unbroken regions, swap back.
 					TriangleBlitter &blitter = data.blitter.get();
-					blitter.updateTargets(data.goldMaskGpu, target);
 
+					// --- Pass 1: solid gold base (normal blending) ---
+					blitter.updateTargets(data.goldMaskGpu, target);
 					if (!largeImage)
 						setShaderProgram("alphaOutsideTextures.frag");
 
@@ -1205,10 +1200,41 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 					            static_cast<uint8_t>(255 * globalFade));
 					drawUnbrokenBreakupRegions(id, dstX, dstY);
 					blitter.finish();
-					GPU_SetRGBA(data.goldMaskGpu, 255, 255, 255, 255);
 
 					if (!largeImage)
 						unsetShaderProgram();
+
+					// --- Pass 2: additive glow (bright radiance) ---
+					GPU_BlendMode origGoldBlend = data.goldMaskGpu->blend_mode;
+					data.goldMaskGpu->blend_mode = addBlend;
+
+					if (!largeImage)
+						setShaderProgram("alphaOutsideTextures.frag");
+
+					uint8_t glowIntensity = static_cast<uint8_t>(220 * globalFade);
+					GPU_SetRGBA(data.goldMaskGpu, glowIntensity, glowIntensity, glowIntensity, glowIntensity);
+					drawUnbrokenBreakupRegions(id, dstX, dstY);
+					blitter.finish();
+
+					if (!largeImage)
+						unsetShaderProgram();
+
+					// --- Pass 3: additive shimmer (time-varying sparkle) ---
+					if (!largeImage)
+						setShaderProgram("alphaOutsideTextures.frag");
+
+					float shimmer = 0.5f + 0.5f * std::sin(ticks * 0.006f);
+					uint8_t shimmerVal = static_cast<uint8_t>(140 * globalFade * shimmer);
+					GPU_SetRGBA(data.goldMaskGpu, shimmerVal, shimmerVal, shimmerVal, shimmerVal);
+					drawUnbrokenBreakupRegions(id, dstX, dstY);
+					blitter.finish();
+
+					if (!largeImage)
+						unsetShaderProgram();
+
+					// Restore
+					data.goldMaskGpu->blend_mode = origGoldBlend;
+					GPU_SetRGBA(data.goldMaskGpu, 255, 255, 255, 255);
 
 					// Restore blitter to the original sprite source
 					blitter.updateTargets(src, target);
