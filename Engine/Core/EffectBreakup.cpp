@@ -10,6 +10,7 @@
 #include "Engine/Core/ONScripter.hpp"
 #include "Engine/Graphics/Common.hpp"
 #include "Engine/Components/Window.hpp"
+#include "Resources/Support/Resources.hpp"
 
 constexpr int BREAKUP_DIRECTIONS = 8;
 
@@ -48,23 +49,23 @@ void ONScripter::buildButterflyCellforms() {
 	if (butterfly_cellforms_gpu || butterfly_cellforms_load_attempted)
 		return;
 
-	// Only attempt loading once to avoid I/O spam every frame
 	butterfly_cellforms_load_attempted = true;
 
-	// Load butterfly sprite sheet from embedded resource
-	// Sprite sheet: 4 horizontal frames, each 24x24 pixels (total 96x24)
-	// Butterfly oriented toward upper-left
-	butterfly_cellforms_gpu = loadGpuImage("butterfly-cellforms.png");
-
-	if (butterfly_cellforms_gpu) {
-		butterfly_frame_w = butterfly_cellforms_gpu->w / 4; // 24px per frame
-		butterfly_frame_h = butterfly_cellforms_gpu->h;     // 24px
+	// Load butterfly sprite sheet from embedded resources (same approach as breakup-cellforms.png)
+	const InternalResource *res = getResource("butterfly-cellforms.png");
+	if (res) {
+		SDL_RWops *rw        = SDL_RWFromConstMem(res->buffer, static_cast<int>(res->size));
+		SDL_Surface *surface = IMG_Load_RW(rw, 0);
+		butterfly_cellforms_gpu = gpu.copyImageFromSurface(surface);
+		SDL_FreeSurface(surface);
+		butterfly_frame_w = butterfly_cellforms_gpu->w / 4;
+		butterfly_frame_h = butterfly_cellforms_gpu->h;
 		GPU_SetImageFilter(butterfly_cellforms_gpu, GPU_FILTER_LINEAR);
 		GPU_SetBlending(butterfly_cellforms_gpu, true);
 		sendToLog(LogLevel::Info, "Loaded butterfly cellforms: %dx%d, frame size %dx%d\n",
 		          butterfly_cellforms_gpu->w, butterfly_cellforms_gpu->h, butterfly_frame_w, butterfly_frame_h);
 	} else {
-		sendToLog(LogLevel::Warn, "butterfly-cellforms.png not found, butterfly overlay disabled\n");
+		sendToLog(LogLevel::Warn, "butterfly-cellforms.png not found in embedded resources, butterfly overlay disabled\n");
 	}
 }
 
