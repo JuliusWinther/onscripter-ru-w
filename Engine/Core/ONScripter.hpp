@@ -1294,6 +1294,8 @@ private:
 		int maxDiagonalToContainBrokenCells; // Only used by new breakup
 		std::vector<BreakupCell> breakup_cells;
 		std::vector<BreakupCell *> diagonals;
+		std::vector<bool> cellHasContent;    // Only used by butterfly breakup
+		int prevBreakupFactor{-1};           // Only used by butterfly breakup
 	};
 
 	std::unordered_map<BreakupID, BreakupData> breakupData;

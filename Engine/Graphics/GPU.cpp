@@ -1118,11 +1118,21 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			float fh       = static_cast<float>(ons.butterfly_frame_h);
 			float cf       = static_cast<float>(data.cellFactor);
 
+			// Detect compose vs decompose by comparing with previous factor
+			bool composing = (data.prevBreakupFactor >= 0 && breakupFactor < data.prevBreakupFactor);
+			data.prevBreakupFactor = breakupFactor;
+
+			bool hasCellContent = !data.cellHasContent.empty();
+
 			for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
 				auto &cell = myCells[n];
 				if (cell.diagonal > data.maxDiagonalToContainBrokenCells) {
 					break;
 				}
+				// Only render butterflies on cells that have visible source content
+				if (hasCellContent && !data.cellHasContent[n])
+					continue;
+
 				if (cell.resizeFactor > 0 && cell.resizeFactor < 1.0f) {
 					// Animation frame: 4 horizontal frames in sprite sheet
 					int animFrame = static_cast<int>((ticks / 120 + n) % 4);
@@ -1133,17 +1143,20 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 					float cellCenterY = cell.cell_y * cf + cf / 2.0f + cell.disp_y + dstY;
 
 					// Rotate butterfly toward its movement direction.
-					// The sprite faces upper-left by default (~-135 degrees).
-					// Desired direction = atan2(disp_y, disp_x), so rotation = desired - (-135).
+					// The sprite faces upper-left by default (~-135 degrees from +x axis).
+					// rotation = atan2(disp_y, disp_x) - (-135°) = atan2(...) + 135°
+					// For compose (reassembly), butterflies face inward (+180°).
 					float angle = 0;
 					if (cell.disp_x != 0 || cell.disp_y != 0) {
 						angle = std::atan2(static_cast<float>(cell.disp_y),
 						                   static_cast<float>(cell.disp_x)) * 180.0f / static_cast<float>(M_PI) + 135.0f;
+						if (composing)
+							angle += 180.0f;
 					}
 
-					// Scale butterfly to cover the circle; fade with resizeFactor
+					// Fade butterfly alpha with resizeFactor (premultiplied alpha)
 					uint8_t alpha = static_cast<uint8_t>(255 * cell.resizeFactor);
-					GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, alpha);
+					GPU_SetRGBA(ons.butterfly_cellforms_gpu, alpha, alpha, alpha, alpha);
 
 					copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
 					             cellCenterX, cellCenterY, cell.resizeFactor, cell.resizeFactor,

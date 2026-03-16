@@ -58,6 +58,8 @@ void ONScripter::buildButterflyCellforms() {
 		SDL_Surface *surface = IMG_Load_RW(rw, 0);
 		butterfly_cellforms_gpu = gpu.copyImageFromSurface(surface);
 		SDL_FreeSurface(surface);
+		// The engine uses premultiplied alpha blending; convert from straight alpha
+		gpu.multiplyAlpha(butterfly_cellforms_gpu, nullptr);
 		butterfly_frame_w = butterfly_cellforms_gpu->w / 4;
 		butterfly_frame_h = butterfly_cellforms_gpu->h;
 		GPU_SetImageFilter(butterfly_cellforms_gpu, GPU_FILTER_LINEAR);
@@ -107,6 +109,45 @@ void ONScripter::initBreakup(BreakupID id, GPU_Image *src, GPU_Rect *src_rect) {
 		if (!breakup_cellform_index_grid) {
 			breakup_cellform_index_grid    = gpu.createImage(numCellsX, numCellsY, 4);
 			breakup_cellform_index_surface = SDL_CreateRGBSurface(SDL_SWSURFACE, numCellsX, numCellsY, 32, 0, 0, 0, 0);
+		}
+	}
+
+	// For butterfly breakup types, determine which cells have visible source content
+	// so we only render butterflies over non-transparent regions.
+	bool isButterfly = (id.type == BreakupType::BUTTERFLY_SPRITE_CANVAS ||
+	                    id.type == BreakupType::BUTTERFLY_SPRITE_TIGHTFIT ||
+	                    id.type == BreakupType::BUTTERFLY_SPRITESET ||
+	                    id.type == BreakupType::BUTTERFLY_GLOBAL);
+	if (isButterfly && src) {
+		data.cellHasContent.resize(numCellsX * numCellsY, false);
+		data.prevBreakupFactor = -1;
+		SDL_Surface *surf = GPU_CopySurfaceFromImage(src);
+		if (surf) {
+			int srcOffX = src_rect ? static_cast<int>(src_rect->x) : 0;
+			int srcOffY = src_rect ? static_cast<int>(src_rect->y) : 0;
+			int bpp     = surf->format->BytesPerPixel;
+			for (int n = 0; n < numCellsX * numCellsY; ++n) {
+				// Sample a few points in the cell to catch non-rectangular sprite content
+				int baseCx = (n % numCellsX) * cellFactor + srcOffX;
+				int baseCy = (n / numCellsX) * cellFactor + srcOffY;
+				bool found = false;
+				for (int sy = 0; sy < cellFactor && !found; sy += cellFactor / 2) {
+					for (int sx = 0; sx < cellFactor && !found; sx += cellFactor / 2) {
+						int px = baseCx + sx;
+						int py = baseCy + sy;
+						if (px >= 0 && px < surf->w && py >= 0 && py < surf->h && bpp == 4) {
+							auto *pixel = static_cast<uint8_t *>(surf->pixels) + py * surf->pitch + px * bpp;
+							uint32_t pval;
+							std::memcpy(&pval, pixel, 4);
+							uint8_t r, g, b, a;
+							SDL_GetRGBA(pval, surf->format, &r, &g, &b, &a);
+							if (a > 0) found = true;
+						}
+					}
+				}
+				data.cellHasContent[n] = found;
+			}
+			SDL_FreeSurface(surf);
 		}
 	}
 }
