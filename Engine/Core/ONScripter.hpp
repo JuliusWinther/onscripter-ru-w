@@ -1314,6 +1314,7 @@ private:
 	/* ---------------------------------------- */
 	/* Butterfly breakup related */
 	GPU_Image *butterfly_cellforms_gpu{nullptr};
+	bool butterfly_cellforms_load_attempted{false};
 	int butterfly_frame_w{0}, butterfly_frame_h{0};
 	void buildButterflyCellforms();
 	void effectButterflyBreakupParser(const char *params, int refresh_mode_src, int refresh_mode_dst);

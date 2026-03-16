@@ -45,8 +45,11 @@ void ONScripter::buildBreakupCellforms() {
 }
 
 void ONScripter::buildButterflyCellforms() {
-	if (butterfly_cellforms_gpu)
+	if (butterfly_cellforms_gpu || butterfly_cellforms_load_attempted)
 		return;
+
+	// Only attempt loading once to avoid I/O spam every frame
+	butterfly_cellforms_load_attempted = true;
 
 	// Load butterfly sprite sheet from embedded resource
 	// Sprite sheet: 4 horizontal frames, each 24x24 pixels (total 96x24)
@@ -58,6 +61,10 @@ void ONScripter::buildButterflyCellforms() {
 		butterfly_frame_h = butterfly_cellforms_gpu->h;     // 24px
 		GPU_SetImageFilter(butterfly_cellforms_gpu, GPU_FILTER_LINEAR);
 		GPU_SetBlending(butterfly_cellforms_gpu, true);
+		sendToLog(LogLevel::Info, "Loaded butterfly cellforms: %dx%d, frame size %dx%d\n",
+		          butterfly_cellforms_gpu->w, butterfly_cellforms_gpu->h, butterfly_frame_w, butterfly_frame_h);
+	} else {
+		sendToLog(LogLevel::Warn, "butterfly-cellforms.png not found, butterfly overlay disabled\n");
 	}
 }
 
