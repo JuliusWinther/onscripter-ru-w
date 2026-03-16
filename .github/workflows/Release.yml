@@ -139,7 +139,8 @@ jobs:
   Publish_Release:
     needs: [Windows, Linux, macOS]
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' 
+    # IL SEGRETO È QUI: Esegui se non è una PR, non è stato cancellato manualmente, e ALMENO UNA build ha avuto successo.
+    if: ${{ always() && github.event_name != 'pull_request' && !cancelled() && (needs.Windows.result == 'success' || needs.Linux.result == 'success' || needs.macOS.result == 'success') }}
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -155,7 +156,19 @@ jobs:
           tag: z${{ github.run_number }}
           name: ONScripter-ru r${{ github.run_number }}
           artifacts: "release_assets/*.zip"
-          # Imposta come 'Latest' solo se il push è sul branch master
           makeLatest: ${{ github.ref == 'refs/heads/master' }} 
-          # Imposta come Pre-release se il push è sul branch test O sul branch butterfly
           prerelease: ${{ github.ref == 'refs/heads/test' || github.ref == 'refs/heads/butterfly' }}
+
+  Cleanup_Old_Releases:
+    needs: [Publish_Release]
+    runs-on: ubuntu-latest
+    # Esegui solo se la release è stata pubblicata con successo
+    if: ${{ success() && github.event_name != 'pull_request' }}
+    steps:
+      - name: Delete old releases
+        uses: dev-drprasad/delete-older-releases@v0.3.3
+        with:
+          keep_latest: 10 # Mantieni le ultime 10 release. Modifica questo numero se vuoi!
+          delete_tags: true # Cancella anche il tag Git associato
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
