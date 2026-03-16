@@ -2,9 +2,9 @@ name: Release
 
 on:
   push:
-    branches: ["**"]
+    branches: ["master", "test", "butterfly"]
   pull_request:
-    branches: ["**"]
+    branches: ["master", "test", "butterfly"]
   workflow_dispatch:
     inputs:
       build_type:
@@ -14,26 +14,20 @@ on:
 
 env:
   BUILD: ${{ github.run_number }}
-  BRANCH: ${{ github.ref_name }}
 
 jobs:
-
   Windows:
     runs-on: ubuntu-22.04
-
     strategy:
       matrix:
         BUILD_TYPE: ["debug", "release"]
         DISCORD_INTEGRATION: ["using discord", "not using discord"]
-
     env:
       dev: ${{ matrix.BUILD_TYPE == 'debug' && '_dev' || '' }}
       cmd: ${{ matrix.BUILD_TYPE == 'release' && '--release-build --strip-binary' || '' }}
       discord: ${{ matrix.DISCORD_INTEGRATION == 'using discord' && '--with-discord' || '' }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -44,10 +38,7 @@ jobs:
           pip3 install meson ninja
 
       - name: Env setup
-        run: |
-          echo "Build number ${BUILD}"
-          echo "Branch ${BRANCH}"
-          mkdir -p ciout
+        run: mkdir -p ciout
 
       - name: Configure
         env:
@@ -66,38 +57,24 @@ jobs:
           mv DerivedData/MinGW-i686/onscripter-ru.exe ciout
           cp -r Resources/Windows/dlls ciout/dlls
           cd ciout
-          zip -qry onscripter-ru_win_${BRANCH}_r${BUILD}${{env.dev}}${{env.discord}}.zip onscripter-ru.exe dlls
+          zip -qry onscripter-ru_win_r${BUILD}${{env.dev}}${{env.discord}}.zip onscripter-ru.exe dlls
 
-      - name: Upload files
-        if: github.event_name == 'push'
-        uses: ncipollo/release-action@v1
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
         with:
-          allowUpdates: true
-          replacesArtifacts: false
-          tag: ${{ env.BRANCH }}-r${{ env.BUILD }}
-          name: ONScripter-ru ${{ env.BRANCH }} r${{ env.BUILD }}
-          body: |
-            Automated build
-
-            Branch: ${{ env.BRANCH }}
-            Commit: ${{ github.sha }}
-          artifacts: "ciout/*.zip"
-
+          name: win-build-${{ matrix.BUILD_TYPE }}-${{ strategy.job-index }}
+          path: ciout/*.zip
 
   Linux:
     runs-on: ubuntu-22.04
-
     strategy:
       matrix:
         BUILD_TYPE: ["debug", "release"]
-
     env:
       dev: ${{ matrix.BUILD_TYPE == 'debug' && '_dev' || '' }}
       cmd: ${{ matrix.BUILD_TYPE == 'release' && '--release-build --strip-binary' || '' }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -108,10 +85,7 @@ jobs:
           pip3 install meson ninja
 
       - name: Env setup
-        run: |
-          echo "Build number ${BUILD}"
-          echo "Branch ${BRANCH}"
-          mkdir -p ciout
+        run: mkdir -p ciout
 
       - name: Configure
         run: ./configure ${{env.cmd}}
@@ -122,73 +96,66 @@ jobs:
           make -j$(nproc)
           mv DerivedData/Posix-x86_64/onscripter-ru ciout
           cd ciout
-          zip -qry onscripter-ru_linux64_${BRANCH}_r${BUILD}${{env.dev}}.zip onscripter-ru
-          rm onscripter-ru
-          cd ..
-
-      - name: Upload files
-        if: github.event_name == 'push'
-        uses: ncipollo/release-action@v1
+          zip -qry onscripter-ru_linux64_r${BUILD}${{env.dev}}.zip onscripter-ru
+          
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
         with:
-          allowUpdates: true
-          replacesArtifacts: false
-          tag: ${{ env.BRANCH }}-r${{ env.BUILD }}
-          name: ONScripter-ru ${{ env.BRANCH }} r${{ env.BUILD }}
-          body: |
-            Automated build
-
-            Branch: ${{ env.BRANCH }}
-            Commit: ${{ github.sha }}
-          artifacts: "ciout/*.zip"
-
+          name: linux-build-${{ matrix.BUILD_TYPE }}
+          path: ciout/*.zip
 
   macOS:
     runs-on: macos-11
-
     strategy:
       matrix:
         BUILD_TYPE: ["Debug", "Release"]
-
     env:
       HOMEBREW_NO_AUTO_UPDATE: 1
       dev: ${{ matrix.BUILD_TYPE == 'Debug' && '_dbg' || '' }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Install deps
-        run: |
-          brew install yasm meson ninja
+        run: brew install yasm meson ninja
 
       - name: Env setup
-        run: |
-          echo "Build number ${BUILD}"
-          echo "Branch ${BRANCH}"
-          mkdir -p ciout
+        run: mkdir -p ciout
 
       - name: Build
         run: |
           xcodebuild ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO -target onscripter-ru-osx -configuration ${{ matrix.BUILD_TYPE }}
           mv build/${{ matrix.BUILD_TYPE }}/onscripter-ru-osx.app ciout
           cd ciout
-          zip -qry onscripter-ru_osx_${BRANCH}_r${BUILD}${{ env.dev }}.zip onscripter-ru-osx.app
-          rm -rf onscripter-ru-osx.app
-          cd -
+          zip -qry onscripter-ru_osx_r${BUILD}${{ env.dev }}.zip onscripter-ru-osx.app
+          
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build-${{ matrix.BUILD_TYPE }}
+          path: ciout/*.zip
 
-      - name: Upload files
-        if: github.event_name == 'push'
+  Publish_Release:
+    needs: [Windows, Linux, macOS]
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' 
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+          merge-multiple: true
+
+      - name: Create Release
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
-          replacesArtifacts: false
-          tag: ${{ env.BRANCH }}-r${{ env.BUILD }}
-          name: ONScripter-ru ${{ env.BRANCH }} r${{ env.BUILD }}
-          body: |
-            Automated build
-
-            Branch: ${{ env.BRANCH }}
-            Commit: ${{ github.sha }}
-          artifacts: "ciout/*.zip"
+          replacesArtifacts: true
+          tag: z${{ github.run_number }}
+          name: ONScripter-ru r${{ github.run_number }}
+          artifacts: "release_assets/*.zip"
+          # Imposta come 'Latest' solo se il push è sul branch master
+          makeLatest: ${{ github.ref == 'refs/heads/master' }} 
+          # Imposta come Pre-release se il push è sul branch test O sul branch butterfly
+          prerelease: ${{ github.ref == 'refs/heads/test' || github.ref == 'refs/heads/butterfly' }}
