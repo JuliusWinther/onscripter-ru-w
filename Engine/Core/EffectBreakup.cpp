@@ -69,6 +69,44 @@ void ONScripter::buildButterflyCellforms() {
 	} else {
 		sendToLog(LogLevel::Warn, "butterfly-cellforms.png not found in embedded resources, butterfly overlay disabled\n");
 	}
+
+	// Generate golden orb texture procedurally (radial gradient, warm gold)
+	if (!butterfly_orb_gpu) {
+		constexpr int orbSize = 48;
+		SDL_Surface *orbSurf  = SDL_CreateRGBSurface(0, orbSize, orbSize, 32,
+		                                              0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
+		if (orbSurf) {
+			float center = orbSize / 2.0f;
+			for (int y = 0; y < orbSize; y++) {
+				for (int x = 0; x < orbSize; x++) {
+					float dx   = x - center + 0.5f;
+					float dy   = y - center + 0.5f;
+					float dist = std::sqrt(dx * dx + dy * dy) / center;
+					if (dist > 1.0f) dist = 1.0f;
+					// Soft radial falloff: bright core, gentle fade
+					float intensity = std::max(0.0f, 1.0f - dist * dist);
+					intensity *= intensity; // sharpen the core for a more spherical look
+					// Warm golden color: core is white-gold, edge is deep amber
+					float coreFactor = std::max(0.0f, 1.0f - dist * 1.5f);
+					coreFactor = std::max(0.0f, coreFactor);
+					uint8_t r = static_cast<uint8_t>(std::min(255.0f, (220 + 35 * coreFactor) * intensity));
+					uint8_t g = static_cast<uint8_t>(std::min(255.0f, (170 + 60 * coreFactor) * intensity));
+					uint8_t b = static_cast<uint8_t>(std::min(255.0f, (50 + 80 * coreFactor) * intensity));
+					uint8_t a = static_cast<uint8_t>(255 * intensity);
+					auto *pixel = reinterpret_cast<uint32_t *>(
+					    static_cast<uint8_t *>(orbSurf->pixels) + y * orbSurf->pitch + x * 4);
+					*pixel = (static_cast<uint32_t>(a) << 24) | (static_cast<uint32_t>(b) << 16) |
+					         (static_cast<uint32_t>(g) << 8) | r;
+				}
+			}
+			butterfly_orb_gpu = gpu.copyImageFromSurface(orbSurf);
+			SDL_FreeSurface(orbSurf);
+			gpu.multiplyAlpha(butterfly_orb_gpu, nullptr);
+			GPU_SetImageFilter(butterfly_orb_gpu, GPU_FILTER_LINEAR);
+			GPU_SetBlending(butterfly_orb_gpu, true);
+			sendToLog(LogLevel::Info, "Generated butterfly golden orb texture: %dx%d\n", orbSize, orbSize);
+		}
+	}
 }
 
 bool ONScripter::breakupInitRequired(BreakupID id) {

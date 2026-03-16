@@ -1111,75 +1111,128 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 
 			bool hasCellContent = !data.cellHasContent.empty();
 
+			// Additive blend mode for glow passes and golden orbs
+			GPU_BlendMode addBlend;
+			addBlend.source_color   = GPU_FUNC_ONE;
+			addBlend.dest_color     = GPU_FUNC_ONE;
+			addBlend.source_alpha   = GPU_FUNC_ONE;
+			addBlend.dest_alpha     = GPU_FUNC_ONE;
+			addBlend.color_equation = GPU_EQ_ADD;
+			addBlend.alpha_equation = GPU_EQ_ADD;
+
+			GPU_BlendMode origBflyBlend = ons.butterfly_cellforms_gpu->blend_mode;
+			GPU_BlendMode origOrbBlend;
+			if (ons.butterfly_orb_gpu)
+				origOrbBlend = ons.butterfly_orb_gpu->blend_mode;
+
+			// Morph thresholds: resizeFactor near 1.0 = golden orb phase
+			constexpr float orbFullStart = 0.82f; // above this: orb only (butterfly gone)
+			constexpr float orbFadeStart = 0.60f; // below this: butterfly only (no orb)
+
 			for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
 				auto &cell = myCells[n];
 				if (cell.diagonal > data.maxDiagonalToContainBrokenCells) {
 					break;
 				}
-				// Only render butterflies on cells that have visible source content.
-				// cellHasContent is indexed spatially as [cell_y * numCellsX + cell_x].
 				if (hasCellContent && !data.cellHasContent[cell.cell_y * data.numCellsX + cell.cell_x])
 					continue;
 
 				if (cell.resizeFactor > 0 && cell.resizeFactor < 1.0f) {
-					// Animation: 4 horizontal frames at 24fps (42ms per frame)
-					int animFrame = static_cast<int>((ticks / 42 + n) % 4);
-					GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
-
-					// Position at exactly the same point as the circle center
-					// (circle center = cell origin + displacement + dstOffset)
 					float destX = cell.cell_x * cf + cell.disp_x + dstX;
 					float destY = cell.cell_y * cf + cell.disp_y + dstY;
 
-					// Rotate butterfly to face movement direction.
-					// The sprite faces upper-left by default (~-135° from +x axis).
-					// Use xMovement/yMovement (the velocity vector) for stable direction.
-					// rotation = atan2(yMovement, xMovement) - (-135°) = atan2(...) + 135°
-					// For compose (reassembly), butterflies face opposite (+180°).
+					// Movement direction angle (for butterfly orientation)
 					float angle = 0;
-					float mx = cell.xMovement;
-					float my = cell.yMovement;
+					float mx    = cell.xMovement;
+					float my    = cell.yMovement;
 					if (mx != 0 || my != 0) {
 						angle = std::atan2(my, mx) * 180.0f / static_cast<float>(M_PI) + 135.0f;
 						if (composing)
 							angle += 180.0f;
 					}
 
-					// Golden glitter: each butterfly shimmers independently.
-					// Two-pass rendering: normal pass + additive glow pass.
-					float baseBrightness = 255.0f * cell.resizeFactor;
-					uint8_t alpha = static_cast<uint8_t>(baseBrightness);
+					// Compute blend factors for butterfly vs golden orb
+					float orbBlend = 0; // 0 = no orb, 1 = full orb
+					float bflyBlend = 1; // 1 = full butterfly, 0 = no butterfly
+					if (cell.resizeFactor > orbFullStart) {
+						orbBlend  = 1.0f;
+						bflyBlend = 0.0f;
+					} else if (cell.resizeFactor > orbFadeStart) {
+						float t   = (cell.resizeFactor - orbFadeStart) / (orbFullStart - orbFadeStart);
+						orbBlend  = t * t; // ease-in for orb appearance
+						bflyBlend = 1.0f - t;
+					}
 
-					// Pass 1: normal premultiplied draw with slight brightness boost
-					float glitter1 = 0.9f + 0.2f * std::sin(ticks * 0.012f + n * 2.1f);
-					uint8_t bright = static_cast<uint8_t>(std::min(255.0f, baseBrightness * glitter1 * 1.3f));
-					GPU_SetRGBA(ons.butterfly_cellforms_gpu, bright, bright, bright, alpha);
-					copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
-					             destX, destY, cell.resizeFactor, cell.resizeFactor,
-					             angle, true);
+					// ---- BUTTERFLY PHASE ----
+					if (bflyBlend > 0.01f) {
+						int animFrame = static_cast<int>((ticks / 42 + n) % 4);
+						GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
 
-					// Pass 2: additive glow overlay with faster shimmer
-					GPU_BlendMode origBlend = ons.butterfly_cellforms_gpu->blend_mode;
-					GPU_BlendMode addBlend;
-					addBlend.source_color    = GPU_FUNC_ONE;
-					addBlend.dest_color      = GPU_FUNC_ONE;
-					addBlend.source_alpha    = GPU_FUNC_ONE;
-					addBlend.dest_alpha      = GPU_FUNC_ONE;
-					addBlend.color_equation  = GPU_EQ_ADD;
-					addBlend.alpha_equation  = GPU_EQ_ADD;
-					ons.butterfly_cellforms_gpu->blend_mode = addBlend;
+						float baseBright = 255.0f * cell.resizeFactor * bflyBlend;
+						uint8_t alpha    = static_cast<uint8_t>(std::min(255.0f, baseBright));
 
-					float glitter2 = 0.5f + 0.5f * std::sin(ticks * 0.018f + n * 3.7f);
-					uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, baseBrightness * glitter2 * 0.7f));
-					GPU_SetRGBA(ons.butterfly_cellforms_gpu, glowVal, glowVal, glowVal, glowVal);
-					copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
-					             destX, destY, cell.resizeFactor * 1.3f, cell.resizeFactor * 1.3f,
-					             angle, true);
+						// Normal draw with golden shimmer
+						float glitter1 = 0.9f + 0.2f * std::sin(ticks * 0.012f + n * 2.1f);
+						uint8_t bright = static_cast<uint8_t>(std::min(255.0f, baseBright * glitter1 * 1.3f));
+						GPU_SetRGBA(ons.butterfly_cellforms_gpu, bright, bright, bright, alpha);
+						copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
+						             destX, destY, cell.resizeFactor, cell.resizeFactor,
+						             angle, true);
 
-					ons.butterfly_cellforms_gpu->blend_mode = origBlend;
+						// Additive glow pass
+						ons.butterfly_cellforms_gpu->blend_mode = addBlend;
+						float glitter2  = 0.5f + 0.5f * std::sin(ticks * 0.018f + n * 3.7f);
+						uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, baseBright * glitter2 * 0.7f));
+						GPU_SetRGBA(ons.butterfly_cellforms_gpu, glowVal, glowVal, glowVal, glowVal);
+						copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
+						             destX, destY, cell.resizeFactor * 1.3f, cell.resizeFactor * 1.3f,
+						             angle, true);
+						ons.butterfly_cellforms_gpu->blend_mode = origBflyBlend;
+					}
+
+					// ---- GOLDEN ORB PHASE ----
+					// As butterfly arrives at destination, it dissolves into a golden
+					// sphere of light that merges into the final sprite pixel.
+					if (orbBlend > 0.01f && ons.butterfly_orb_gpu) {
+						// Orb fades in as resizeFactor approaches orbFullStart,
+						// then fades out as resizeFactor → 1.0 (sprite pixel takes over).
+						float orbLife; // 0→1→0 across the orb's visible range
+						if (cell.resizeFactor < orbFullStart) {
+							orbLife = orbBlend; // fading in
+						} else {
+							// From orbFullStart to 1.0: fade out
+							orbLife = 1.0f - (cell.resizeFactor - orbFullStart) / (1.0f - orbFullStart);
+							orbLife = std::max(0.0f, orbLife);
+						}
+
+						// Pulsating shimmer unique to each orb
+						float shimmer = 0.7f + 0.3f * std::sin(ticks * 0.015f + n * 1.3f);
+						float orbAlpha = orbLife * shimmer;
+
+						// Orb size: starts at cell size, shrinks slightly as it settles
+						float orbScale = cf / 48.0f * (0.8f + 0.4f * orbLife);
+
+						// Draw orb with additive blending for a glowing light effect
+						ons.butterfly_orb_gpu->blend_mode = addBlend;
+						uint8_t orbV = static_cast<uint8_t>(std::min(255.0f, 255.0f * orbAlpha));
+						GPU_SetRGBA(ons.butterfly_orb_gpu, orbV, orbV, orbV, orbV);
+						copyGPUImage(ons.butterfly_orb_gpu, nullptr, nullptr, target,
+						             destX, destY, orbScale, orbScale, 0, true);
+
+						// Brighter core pass for intense golden glow
+						float coreScale = orbScale * 0.6f;
+						uint8_t coreV   = static_cast<uint8_t>(std::min(255.0f, 255.0f * orbAlpha * 0.8f));
+						GPU_SetRGBA(ons.butterfly_orb_gpu, coreV, coreV, coreV, coreV);
+						copyGPUImage(ons.butterfly_orb_gpu, nullptr, nullptr, target,
+						             destX, destY, coreScale, coreScale, 0, true);
+
+						ons.butterfly_orb_gpu->blend_mode = origOrbBlend;
+					}
 				}
 			}
 			GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
+			if (ons.butterfly_orb_gpu)
+				GPU_SetRGBA(ons.butterfly_orb_gpu, 255, 255, 255, 255);
 		}
 	} else {
 		// Old implementation fallback: use regular breakup
