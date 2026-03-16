@@ -1074,8 +1074,6 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 		}
 	}
 
-	ons.buildButterflyCellforms();
-
 	ONScripter::BreakupData &data = ons.breakupData[id];
 	BreakupCell *myCells          = data.breakup_cells.data();
 
@@ -1092,26 +1090,15 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 		ons.effectBreakupNew(id, breakupFactor);
 		drawUnbrokenBreakupRegions(id, dstX, dstY);
 
-		// Render circles identically to regular breakup
-		for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
-			auto &cell = myCells[n];
-			float x{cell.cell_x * static_cast<float>(data.cellFactor)};
-			float y{cell.cell_y * static_cast<float>(data.cellFactor)};
-			if (cell.diagonal > data.maxDiagonalToContainBrokenCells) {
-				break;
-			}
-			if (cell.resizeFactor > 0) {
-				blitter.useFewerTriangles(cell.resizeFactor < 0.15f);
-				blitter.copyCircle(x, y, 12, x + cell.disp_x + dstX, y + cell.disp_y + dstY, cell.resizeFactor);
-			}
-		}
+		// Flush unbroken regions; do NOT draw circles — butterflies replace them.
 		blitter.finish();
 		if (!largeImage)
 			unsetShaderProgram();
 
-		// Overlay animated butterfly sprites on top of each breaking circle.
-		// Each butterfly is scaled to cover its circle and rotated toward
-		// the direction the circle is moving (computed from disp_x, disp_y).
+		// Render animated butterfly sprites in place of circles.
+		// Each butterfly is positioned exactly where its circle would be,
+		// rotated to face the cell's movement direction (xMovement, yMovement).
+		ons.buildButterflyCellforms();
 		if (ons.butterfly_cellforms_gpu) {
 			uint32_t ticks = SDL_GetTicks();
 			float fw       = static_cast<float>(ons.butterfly_frame_w);
@@ -1134,22 +1121,25 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 					continue;
 
 				if (cell.resizeFactor > 0 && cell.resizeFactor < 1.0f) {
-					// Animation frame: 4 horizontal frames in sprite sheet
-					int animFrame = static_cast<int>((ticks / 120 + n) % 4);
+					// Animation: 4 horizontal frames at 14fps (71ms per frame)
+					int animFrame = static_cast<int>((ticks / 71 + n) % 4);
 					GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
 
-					// Position at cell center + displacement (centre_coordinates mode)
-					float cellCenterX = cell.cell_x * cf + cf / 2.0f + cell.disp_x + dstX;
-					float cellCenterY = cell.cell_y * cf + cf / 2.0f + cell.disp_y + dstY;
+					// Position at exactly the same point as the circle center
+					// (circle center = cell origin + displacement + dstOffset)
+					float destX = cell.cell_x * cf + cell.disp_x + dstX;
+					float destY = cell.cell_y * cf + cell.disp_y + dstY;
 
-					// Rotate butterfly toward its movement direction.
-					// The sprite faces upper-left by default (~-135 degrees from +x axis).
-					// rotation = atan2(disp_y, disp_x) - (-135°) = atan2(...) + 135°
-					// For compose (reassembly), butterflies face inward (+180°).
+					// Rotate butterfly to face movement direction.
+					// The sprite faces upper-left by default (~-135° from +x axis).
+					// Use xMovement/yMovement (the velocity vector) for stable direction.
+					// rotation = atan2(yMovement, xMovement) - (-135°) = atan2(...) + 135°
+					// For compose (reassembly), butterflies face opposite (+180°).
 					float angle = 0;
-					if (cell.disp_x != 0 || cell.disp_y != 0) {
-						angle = std::atan2(static_cast<float>(cell.disp_y),
-						                   static_cast<float>(cell.disp_x)) * 180.0f / static_cast<float>(M_PI) + 135.0f;
+					float mx = cell.xMovement;
+					float my = cell.yMovement;
+					if (mx != 0 || my != 0) {
+						angle = std::atan2(my, mx) * 180.0f / static_cast<float>(M_PI) + 135.0f;
 						if (composing)
 							angle += 180.0f;
 					}
@@ -1159,7 +1149,7 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 					GPU_SetRGBA(ons.butterfly_cellforms_gpu, alpha, alpha, alpha, alpha);
 
 					copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
-					             cellCenterX, cellCenterY, cell.resizeFactor, cell.resizeFactor,
+					             destX, destY, cell.resizeFactor, cell.resizeFactor,
 					             angle, true);
 				}
 			}
