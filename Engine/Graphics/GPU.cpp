@@ -1116,8 +1116,9 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 				if (cell.diagonal > data.maxDiagonalToContainBrokenCells) {
 					break;
 				}
-				// Only render butterflies on cells that have visible source content
-				if (hasCellContent && !data.cellHasContent[n])
+				// Only render butterflies on cells that have visible source content.
+				// cellHasContent is indexed spatially as [cell_y * numCellsX + cell_x].
+				if (hasCellContent && !data.cellHasContent[cell.cell_y * data.numCellsX + cell.cell_x])
 					continue;
 
 				if (cell.resizeFactor > 0 && cell.resizeFactor < 1.0f) {
@@ -1144,9 +1145,15 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 							angle += 180.0f;
 					}
 
-					// Fade butterfly alpha with resizeFactor (premultiplied alpha)
-					uint8_t alpha = static_cast<uint8_t>(255 * cell.resizeFactor);
-					GPU_SetRGBA(ons.butterfly_cellforms_gpu, alpha, alpha, alpha, alpha);
+					// Golden glitter: each butterfly shimmers independently
+					// using a sine wave with unique phase offset per cell.
+					// With premultiplied blending (src*1 + dst*(1-src_a)),
+					// boosting RGB above alpha creates an additive glow effect.
+					float glitter = 0.8f + 0.4f * std::sin(ticks * 0.008f + n * 2.1f);
+					float baseBrightness = 255.0f * cell.resizeFactor;
+					uint8_t alpha = static_cast<uint8_t>(baseBrightness);
+					uint8_t glow  = static_cast<uint8_t>(std::min(255.0f, baseBrightness * glitter * 1.4f));
+					GPU_SetRGBA(ons.butterfly_cellforms_gpu, glow, glow, glow, alpha);
 
 					copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
 					             destX, destY, cell.resizeFactor, cell.resizeFactor,
