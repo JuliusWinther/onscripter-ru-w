@@ -1176,38 +1176,69 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
 
 			// ---- GOLDEN SILHOUETTE ----
-			// Draw the entire source sprite with golden tint + additive blending.
-			// The sprite's own alpha channel creates the solid silhouette shape.
-			// Intensity ramps up as the transition progresses and fades at the end.
-			float progress = composing
-				? (1.0f - breakupFactor / 1000.0f)   // 0→1 as compose completes
-				: (breakupFactor / 1000.0f);          // 0→1 as decompose completes
-			// Ramp in over the first 15%, hold, fade out in the last 12%
-			float silAlpha;
-			if (progress < 0.15f)
-				silAlpha = progress / 0.15f;
-			else if (progress > 0.88f)
-				silAlpha = (1.0f - progress) / 0.12f;
+			// Solid opaque golden rectangles drawn per-cell as they settle.
+			// Cells tile perfectly on the 16×16 grid → seamless solid gold surface.
+			// Builds up progressively following the diagonal wipe, then fades
+			// at the very end to reveal the actual sprite underneath.
+			//
+			// Global fade: silhouette fades in the final stretch of the transition.
+			float globalFade;
+			if (composing)
+				globalFade = std::min(1.0f, breakupFactor / 100.0f);
 			else
-				silAlpha = 1.0f;
-			silAlpha = std::max(0.0f, std::min(1.0f, silAlpha));
+				globalFade = std::min(1.0f, (1000.0f - breakupFactor) / 100.0f);
 
-			if (silAlpha > 0.01f) {
-				// Gentle shimmer on the whole silhouette
-				float shimmer = 0.85f + 0.15f * std::sin(ticks * 0.006f);
-				silAlpha *= shimmer;
+			if (globalFade > 0.01f) {
+				// Golden color with global fade
+				SDL_Color gold;
+				gold.r = static_cast<uint8_t>(230 * globalFade);
+				gold.g = static_cast<uint8_t>(190 * globalFade);
+				gold.b = static_cast<uint8_t>(60 * globalFade);
+				gold.a = static_cast<uint8_t>(255 * globalFade);
 
-				GPU_BlendMode origSrcBlend = src->blend_mode;
-				src->blend_mode = addBlend;
-				// Golden tint: warm amber (220, 170, 60) scaled by intensity
-				uint8_t gR = static_cast<uint8_t>(std::min(255.0f, 220.0f * silAlpha));
-				uint8_t gG = static_cast<uint8_t>(std::min(255.0f, 170.0f * silAlpha));
-				uint8_t gB = static_cast<uint8_t>(std::min(255.0f, 60.0f * silAlpha));
-				uint8_t gA = static_cast<uint8_t>(255.0f * silAlpha);
-				GPU_SetRGBA(src, gR, gG, gB, gA);
-				copyGPUImage(src, src_rect, nullptr, target, dstX, dstY);
-				src->blend_mode = origSrcBlend;
-				GPU_SetRGBA(src, 255, 255, 255, 255);
+				GPU_SetShapeBlending(true);
+				// Use normal alpha blending for opaque gold coverage
+				GPU_SetShapeBlendMode(GPU_BLEND_NORMAL);
+
+				constexpr float goldThreshold = 0.92f; // cell turns gold in the final 8%
+
+				for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
+					auto &cell = myCells[n];
+					if (cell.diagonal > data.maxDiagonalToContainBrokenCells)
+						break;
+					if (hasCellContent && !data.cellHasContent[cell.cell_y * data.numCellsX + cell.cell_x])
+						continue;
+
+					// For compose: gold on cells approaching/at 1.0 (including settled)
+					// For decompose: gold on cells just starting to break (near 1.0 but < 1.0)
+					bool wantGold = false;
+					if (composing)
+						wantGold = (cell.resizeFactor >= goldThreshold);
+					else
+						wantGold = (cell.resizeFactor >= goldThreshold && cell.resizeFactor < 1.0f);
+
+					if (wantGold) {
+						// Per-cell fade-in: smooth transition as cell approaches gold phase
+						float cellAlpha = 1.0f;
+						if (cell.resizeFactor < 1.0f) {
+							cellAlpha = (cell.resizeFactor - goldThreshold) / (1.0f - goldThreshold);
+							cellAlpha = std::min(1.0f, std::max(0.0f, cellAlpha));
+						}
+
+						SDL_Color c;
+						c.r = static_cast<uint8_t>(gold.r * cellAlpha);
+						c.g = static_cast<uint8_t>(gold.g * cellAlpha);
+						c.b = static_cast<uint8_t>(gold.b * cellAlpha);
+						c.a = static_cast<uint8_t>(gold.a * cellAlpha);
+
+						GPU_Rect cellRect;
+						cellRect.x = cell.cell_x * cf + dstX;
+						cellRect.y = cell.cell_y * cf + dstY;
+						cellRect.w = cf;
+						cellRect.h = cf;
+						GPU_RectangleFilled2(target, cellRect, c);
+					}
+				}
 			}
 		}
 	} else {
