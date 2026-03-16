@@ -1133,9 +1133,10 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			constexpr float bflyScale     = 1.2f;   // base butterfly size multiplier
 			constexpr float bflyMinScale  = 0.45f;  // minimum scale so small-rf butterflies are visible
 
-			// Orb scale: must cover the cell area to build the silhouette.
-			// cellFactor = 16, orb texture = 48. Scale to ~1.3× cell diagonal.
-			float orbBaseScale = cf * 1.3f / 48.0f;
+			// Orb scale: must overlap neighbours to form a continuous silhouette.
+			// The orb texture (48px) has quadratic radial falloff — only the inner
+			// ~50% is visibly bright. Scale so bright cores overlap across 16px cells.
+			float orbBaseScale = cf * 2.8f / 48.0f;
 
 			// Global silhouette fade: slowly fade orbs as transition nears completion.
 			// At breakupFactor 0 (compose done) or 1000 (decompose done) we exit early,
