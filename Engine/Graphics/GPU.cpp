@@ -1121,148 +1121,94 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			addBlend.alpha_equation = GPU_EQ_ADD;
 
 			GPU_BlendMode origBflyBlend = ons.butterfly_cellforms_gpu->blend_mode;
-			GPU_BlendMode origOrbBlend;
-			if (ons.butterfly_orb_gpu)
-				origOrbBlend = ons.butterfly_orb_gpu->blend_mode;
 
-			// Butterfly→orb transition: orb appears in the final moments
-			// of each butterfly's life and PERSISTS on settled cells,
-			// accumulating into a golden silhouette of the sprite.
-			constexpr float orbThreshold  = 0.88f;  // orb appears in the final 12%
-			constexpr float bflyFadeStart = 0.85f;  // butterfly starts fading here
-			constexpr float bflyScale     = 1.2f;   // base butterfly size multiplier
-			constexpr float bflyMinScale  = 0.45f;  // minimum scale so small-rf butterflies are visible
+			constexpr float bflyScale    = 1.2f;  // butterfly size multiplier
+			constexpr float bflyMinScale = 0.45f; // min scale for visibility
 
-			// Orb scale: must overlap neighbours to form a continuous silhouette.
-			// The orb texture (48px) has quadratic radial falloff — only the inner
-			// ~50% is visibly bright. Scale so bright cores overlap across 16px cells.
-			float orbBaseScale = cf * 2.8f / 48.0f;
-
-			// Global silhouette fade: slowly fade orbs as transition nears completion.
-			// At breakupFactor 0 (compose done) or 1000 (decompose done) we exit early,
-			// so the lowest reachable values are ~1. Fade orbs in the final stretch.
-			float silhouetteFade;
-			if (composing)
-				silhouetteFade = std::min(1.0f, breakupFactor / 120.0f);
-			else
-				silhouetteFade = std::min(1.0f, (1000.0f - breakupFactor) / 120.0f);
-
+			// ---- BUTTERFLIES ----
 			for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
 				auto &cell = myCells[n];
 				if (cell.diagonal > data.maxDiagonalToContainBrokenCells)
 					break;
 				if (hasCellContent && !data.cellHasContent[cell.cell_y * data.numCellsX + cell.cell_x])
 					continue;
-
-				// Skip fully-gone cells only; include resizeFactor == 1.0 for orb silhouette
-				if (cell.resizeFactor <= 0)
+				if (cell.resizeFactor <= 0 || cell.resizeFactor >= 1.0f)
 					continue;
 
-				// Cell destination position
 				float destX = cell.cell_x * cf + cell.disp_x + dstX;
 				float destY = cell.cell_y * cf + cell.disp_y + dstY;
 
-				// ---- BUTTERFLY ----
-				// Butterflies render on cells that are actively breaking (0 < rf < ~0.88)
-				if (cell.resizeFactor < orbThreshold) {
-					// Fade butterfly out near the orb transition
-					float bflyAlphaFactor = 1.0f;
-					if (cell.resizeFactor > bflyFadeStart)
-						bflyAlphaFactor = 1.0f - (cell.resizeFactor - bflyFadeStart) / (orbThreshold - bflyFadeStart);
+				float scale = std::max(bflyMinScale, cell.resizeFactor) * bflyScale;
 
-					// Visible scale: don't shrink to nothing at low resizeFactor
-					float scale = std::max(bflyMinScale, cell.resizeFactor) * bflyScale;
+				// Fast wing animation: 20ms per frame → full flap cycle in 80ms
+				int animFrame = static_cast<int>((ticks / 20 + n) % 4);
+				GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
 
-					// Fast wing animation: 20ms per frame → full flap cycle in 80ms
-					int animFrame = static_cast<int>((ticks / 20 + n) % 4);
-					GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
-
-					// Movement direction angle
-					float angle = 0;
-					float mx    = cell.xMovement;
-					float my    = cell.yMovement;
-					if (mx != 0 || my != 0) {
-						angle = std::atan2(my, mx) * 180.0f / static_cast<float>(M_PI) + 135.0f;
-						if (composing)
-							angle += 180.0f;
-					}
-
-					// Alpha: visible even at low resizeFactor, fades near orb threshold
-					float alphaF = std::max(0.35f, cell.resizeFactor) * bflyAlphaFactor;
-					uint8_t alpha = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF));
-
-					// Normal draw with golden shimmer
-					float glitter1 = 0.9f + 0.2f * std::sin(ticks * 0.012f + n * 2.1f);
-					uint8_t bright = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter1 * 1.3f));
-					GPU_SetRGBA(ons.butterfly_cellforms_gpu, bright, bright, bright, alpha);
-					copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
-					             destX, destY, scale, scale, angle, true);
-
-					// Additive glow trail
-					ons.butterfly_cellforms_gpu->blend_mode = addBlend;
-					float glitter2  = 0.5f + 0.5f * std::sin(ticks * 0.018f + n * 3.7f);
-					uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter2 * 0.6f));
-					GPU_SetRGBA(ons.butterfly_cellforms_gpu, glowVal, glowVal, glowVal, glowVal);
-					copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
-					             destX, destY, scale * 1.25f, scale * 1.25f, angle, true);
-					ons.butterfly_cellforms_gpu->blend_mode = origBflyBlend;
-				}
-
-				// ---- GOLDEN ORB (SILHOUETTE) ----
-				// Orb appears at the end of each butterfly's life and PERSISTS on
-				// settled cells (rf=1.0 during compose), building up a golden silhouette.
-				// For decompose, orbs appear on cells just starting to break (rf near 1.0
-				// but < 1.0); cells at exactly 1.0 haven't broken yet, no orb.
-				bool wantOrb = false;
-				if (cell.resizeFactor >= orbThreshold) {
+				// Movement direction angle
+				float angle = 0;
+				float mx    = cell.xMovement;
+				float my    = cell.yMovement;
+				if (mx != 0 || my != 0) {
+					angle = std::atan2(my, mx) * 180.0f / static_cast<float>(M_PI) + 135.0f;
 					if (composing)
-						wantOrb = true;  // include rf=1.0 → builds silhouette
-					else
-						wantOrb = (cell.resizeFactor < 1.0f); // decompose: only breaking cells
+						angle += 180.0f;
 				}
 
-				if (wantOrb && ons.butterfly_orb_gpu) {
-					// Orb intensity: full when just arrived, subject to global fade
-					float orbIntensity = silhouetteFade;
+				float alphaF = std::max(0.35f, cell.resizeFactor);
+				uint8_t alpha = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF));
 
-					// For cells still transitioning (rf < 1.0), fade in smoothly
-					if (cell.resizeFactor < 1.0f) {
-						float t = (cell.resizeFactor - orbThreshold) / (1.0f - orbThreshold);
-						orbIntensity *= t;
-					}
+				// Normal draw with golden shimmer
+				float glitter1 = 0.9f + 0.2f * std::sin(ticks * 0.012f + n * 2.1f);
+				uint8_t bright = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter1 * 1.3f));
+				GPU_SetRGBA(ons.butterfly_cellforms_gpu, bright, bright, bright, alpha);
+				copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
+				             destX, destY, scale, scale, angle, true);
 
-					// Gentle shimmer per orb
-					float shimmer = 0.85f + 0.15f * std::sin(ticks * 0.010f + n * 1.3f);
-					orbIntensity *= shimmer;
-
-					// Position for settled cells: at cell's HOME position (no displacement)
-					float orbX = destX;
-					float orbY = destY;
-					if (cell.resizeFactor >= 1.0f) {
-						// Settled cell: position at grid home (no disp)
-						orbX = cell.cell_x * cf + dstX;
-						orbY = cell.cell_y * cf + dstY;
-					}
-
-					// Draw orb with additive blending → golden glow on top of sprite
-					ons.butterfly_orb_gpu->blend_mode = addBlend;
-					uint8_t orbV = static_cast<uint8_t>(std::min(255.0f, 255.0f * orbIntensity));
-					GPU_SetRGBA(ons.butterfly_orb_gpu, orbV, orbV, orbV, orbV);
-					copyGPUImage(ons.butterfly_orb_gpu, nullptr, nullptr, target,
-					             orbX, orbY, orbBaseScale, orbBaseScale, 0, true);
-
-					// Brighter core for more definition
-					uint8_t coreV = static_cast<uint8_t>(std::min(255.0f, 255.0f * orbIntensity * 0.7f));
-					GPU_SetRGBA(ons.butterfly_orb_gpu, coreV, coreV, coreV, coreV);
-					copyGPUImage(ons.butterfly_orb_gpu, nullptr, nullptr, target,
-					             orbX, orbY, orbBaseScale * 0.55f, orbBaseScale * 0.55f, 0, true);
-
-					ons.butterfly_orb_gpu->blend_mode = origOrbBlend;
-				}
+				// Additive glow trail
+				ons.butterfly_cellforms_gpu->blend_mode = addBlend;
+				float glitter2  = 0.5f + 0.5f * std::sin(ticks * 0.018f + n * 3.7f);
+				uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter2 * 0.6f));
+				GPU_SetRGBA(ons.butterfly_cellforms_gpu, glowVal, glowVal, glowVal, glowVal);
+				copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
+				             destX, destY, scale * 1.25f, scale * 1.25f, angle, true);
+				ons.butterfly_cellforms_gpu->blend_mode = origBflyBlend;
 			}
 			GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
-			if (ons.butterfly_orb_gpu)
-				GPU_SetRGBA(ons.butterfly_orb_gpu, 255, 255, 255, 255);
+
+			// ---- GOLDEN SILHOUETTE ----
+			// Draw the entire source sprite with golden tint + additive blending.
+			// The sprite's own alpha channel creates the solid silhouette shape.
+			// Intensity ramps up as the transition progresses and fades at the end.
+			float progress = composing
+				? (1.0f - breakupFactor / 1000.0f)   // 0→1 as compose completes
+				: (breakupFactor / 1000.0f);          // 0→1 as decompose completes
+			// Ramp in over the first 15%, hold, fade out in the last 12%
+			float silAlpha;
+			if (progress < 0.15f)
+				silAlpha = progress / 0.15f;
+			else if (progress > 0.88f)
+				silAlpha = (1.0f - progress) / 0.12f;
+			else
+				silAlpha = 1.0f;
+			silAlpha = std::max(0.0f, std::min(1.0f, silAlpha));
+
+			if (silAlpha > 0.01f) {
+				// Gentle shimmer on the whole silhouette
+				float shimmer = 0.85f + 0.15f * std::sin(ticks * 0.006f);
+				silAlpha *= shimmer;
+
+				GPU_BlendMode origSrcBlend = src->blend_mode;
+				src->blend_mode = addBlend;
+				// Golden tint: warm amber (220, 170, 60) scaled by intensity
+				uint8_t gR = static_cast<uint8_t>(std::min(255.0f, 220.0f * silAlpha));
+				uint8_t gG = static_cast<uint8_t>(std::min(255.0f, 170.0f * silAlpha));
+				uint8_t gB = static_cast<uint8_t>(std::min(255.0f, 60.0f * silAlpha));
+				uint8_t gA = static_cast<uint8_t>(255.0f * silAlpha);
+				GPU_SetRGBA(src, gR, gG, gB, gA);
+				copyGPUImage(src, src_rect, nullptr, target, dstX, dstY);
+				src->blend_mode = origSrcBlend;
+				GPU_SetRGBA(src, 255, 255, 255, 255);
+			}
 		}
 	} else {
 		// Old implementation fallback: use regular breakup
