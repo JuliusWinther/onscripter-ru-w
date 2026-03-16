@@ -1176,68 +1176,42 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
 
 			// ---- GOLDEN SILHOUETTE ----
-			// Solid opaque golden rectangles drawn per-cell as they settle.
-			// Cells tile perfectly on the 16×16 grid → seamless solid gold surface.
-			// Builds up progressively following the diagonal wipe, then fades
-			// at the very end to reveal the actual sprite underneath.
-			//
-			// Global fade: silhouette fades in the final stretch of the transition.
-			float globalFade;
-			if (composing)
-				globalFade = std::min(1.0f, breakupFactor / 100.0f);
-			else
-				globalFade = std::min(1.0f, (1000.0f - breakupFactor) / 100.0f);
+			// Draw settled regions using the gold mask texture (solid gold with
+			// sprite alpha). Uses the same TriangleBlitter / unbroken-region
+			// system as the sprite itself, so the silhouette is pixel-perfect
+			// smooth with no grid artefacts. Builds up progressively following
+			// the diagonal wipe, then fades at the very end to reveal the sprite.
+			if (data.goldMaskGpu) {
+				// Global fade: silhouette appears while breakup is active, fades
+				// at the end to reveal the actual sprite (compose) or to let
+				// the sprite disappear cleanly (decompose).
+				// Compose  (1000→0): gold at factor 1000..120, fades 120→0
+				// Decompose (0→1000): gold at factor 120..1000, fades at 0..120
+				float globalFade;
+				if (composing)
+					globalFade = std::min(1.0f, breakupFactor / 120.0f);
+				else
+					globalFade = std::min(1.0f, breakupFactor / 120.0f);
 
-			if (globalFade > 0.01f) {
-				// Golden color with global fade
-				SDL_Color gold;
-				gold.r = static_cast<uint8_t>(230 * globalFade);
-				gold.g = static_cast<uint8_t>(190 * globalFade);
-				gold.b = static_cast<uint8_t>(60 * globalFade);
-				gold.a = static_cast<uint8_t>(255 * globalFade);
+				if (globalFade > 0.01f) {
+					// Swap the blitter source to the gold mask, draw unbroken regions, swap back.
+					TriangleBlitter &blitter = data.blitter.get();
+					blitter.updateTargets(data.goldMaskGpu, target);
 
-				GPU_SetShapeBlending(true);
-				// Use normal alpha blending for opaque gold coverage
-				GPU_SetShapeBlendMode(GPU_BLEND_NORMAL);
+					if (!largeImage)
+						setShaderProgram("alphaOutsideTextures.frag");
 
-				constexpr float goldThreshold = 0.92f; // cell turns gold in the final 8%
+					GPU_SetRGBA(data.goldMaskGpu, 255, 255, 255,
+					            static_cast<uint8_t>(255 * globalFade));
+					drawUnbrokenBreakupRegions(id, dstX, dstY);
+					blitter.finish();
+					GPU_SetRGBA(data.goldMaskGpu, 255, 255, 255, 255);
 
-				for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
-					auto &cell = myCells[n];
-					if (cell.diagonal > data.maxDiagonalToContainBrokenCells)
-						break;
-					if (hasCellContent && !data.cellHasContent[cell.cell_y * data.numCellsX + cell.cell_x])
-						continue;
+					if (!largeImage)
+						unsetShaderProgram();
 
-					// For compose: gold on cells approaching/at 1.0 (including settled)
-					// For decompose: gold on cells just starting to break (near 1.0 but < 1.0)
-					bool wantGold = false;
-					if (composing)
-						wantGold = (cell.resizeFactor >= goldThreshold);
-					else
-						wantGold = (cell.resizeFactor >= goldThreshold && cell.resizeFactor < 1.0f);
-
-					if (wantGold) {
-						// Per-cell fade-in: smooth transition as cell approaches gold phase
-						float cellAlpha = 1.0f;
-						if (cell.resizeFactor < 1.0f) {
-							cellAlpha = (cell.resizeFactor - goldThreshold) / (1.0f - goldThreshold);
-							cellAlpha = std::min(1.0f, std::max(0.0f, cellAlpha));
-						}
-
-						SDL_Color c;
-						c.r = static_cast<uint8_t>(gold.r * cellAlpha);
-						c.g = static_cast<uint8_t>(gold.g * cellAlpha);
-						c.b = static_cast<uint8_t>(gold.b * cellAlpha);
-						c.a = static_cast<uint8_t>(gold.a * cellAlpha);
-
-						GPU_Rect cellRect;
-						cellRect.x = cell.cell_x * cf + dstX;
-						cellRect.y = cell.cell_y * cf + dstY;
-						cellRect.w = cf;
-						cellRect.h = cf;
-						GPU_RectangleFilled2(target, cellRect, c);
-					}
+					// Restore blitter to the original sprite source
+					blitter.updateTargets(src, target);
 				}
 			}
 		}

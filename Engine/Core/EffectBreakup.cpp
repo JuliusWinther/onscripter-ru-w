@@ -188,6 +188,40 @@ void ONScripter::initBreakup(BreakupID id, GPU_Image *src, GPU_Rect *src_rect) {
 					data.cellHasContent[cy * numCellsX + cx] = found;
 				}
 			}
+
+			// Create gold mask: same dimensions as source, all opaque pixels → solid gold.
+			// This is drawn using the unbroken-region blitter for a smooth seamless silhouette.
+			SDL_Surface *goldSurf = SDL_CreateRGBSurface(0, surf->w, surf->h,
+			                                             32, surf->format->Rmask, surf->format->Gmask,
+			                                             surf->format->Bmask, surf->format->Amask);
+			if (goldSurf) {
+				// Gold color: warm amber (premultiplied)
+				constexpr uint8_t goldR = 230, goldG = 190, goldB = 60;
+				SDL_LockSurface(goldSurf);
+				for (int py = 0; py < surf->h; ++py) {
+					for (int px = 0; px < surf->w; ++px) {
+						auto *srcPixel = static_cast<uint8_t *>(surf->pixels) + py * surf->pitch + px * bpp;
+						auto *dstPixel = static_cast<uint8_t *>(goldSurf->pixels) + py * goldSurf->pitch + px * 4;
+						uint32_t srcVal;
+						std::memcpy(&srcVal, srcPixel, 4);
+						uint8_t r, g, b, a;
+						SDL_GetRGBA(srcVal, surf->format, &r, &g, &b, &a);
+						// Premultiplied gold with source alpha
+						uint8_t gR = static_cast<uint8_t>(goldR * a / 255);
+						uint8_t gG = static_cast<uint8_t>(goldG * a / 255);
+						uint8_t gB = static_cast<uint8_t>(goldB * a / 255);
+						uint32_t goldVal = SDL_MapRGBA(goldSurf->format, gR, gG, gB, a);
+						std::memcpy(dstPixel, &goldVal, 4);
+					}
+				}
+				SDL_UnlockSurface(goldSurf);
+				data.goldMaskGpu = gpu.copyImageFromSurface(goldSurf);
+				if (data.goldMaskGpu) {
+					GPU_SetImageFilter(data.goldMaskGpu, GPU_FILTER_LINEAR);
+					GPU_SetBlending(data.goldMaskGpu, true);
+				}
+				SDL_FreeSurface(goldSurf);
+			}
 			SDL_FreeSurface(surf);
 		}
 	}
@@ -269,7 +303,14 @@ void ONScripter::deinitBreakup(BreakupID id) {
 	if (breakupInitRequired(id)) {
 		return;
 	}
-	breakupData.erase(id);
+	auto it = breakupData.find(id);
+	if (it != breakupData.end()) {
+		if (it->second.goldMaskGpu) {
+			GPU_FreeImage(it->second.goldMaskGpu);
+			it->second.goldMaskGpu = nullptr;
+		}
+		breakupData.erase(it);
+	}
 }
 
 void ONScripter::effectBreakupNew(BreakupID id, int breakupFactor) {

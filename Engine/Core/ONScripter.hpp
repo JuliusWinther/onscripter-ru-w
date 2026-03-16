@@ -1296,6 +1296,7 @@ private:
 		std::vector<BreakupCell *> diagonals;
 		std::vector<bool> cellHasContent;    // Only used by butterfly breakup
 		int prevBreakupFactor{-1};           // Only used by butterfly breakup
+		GPU_Image *goldMaskGpu{nullptr};     // Only used by butterfly breakup — solid gold silhouette texture
 	};
 
 	std::unordered_map<BreakupID, BreakupData> breakupData;
