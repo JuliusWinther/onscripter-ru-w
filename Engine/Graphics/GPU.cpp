@@ -1060,13 +1060,7 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 		return;
 	}
 
-	sendToLog(LogLevel::Info, "butterflyBreakUpImage called: id.type=%d id.id=%d factor=%d src=%p(%dx%d) target=%p dst=(%.0f,%.0f)\n",
-	          static_cast<int>(id.type), static_cast<int>(id.id), breakupFactor,
-	          src, static_cast<int>(src->w), static_cast<int>(src->h),
-	          target, dstX, dstY);
-
 	if (breakupFactor == 0) {
-		sendToLog(LogLevel::Info, "butterflyBreakUp: factor==0, drawing full image\n");
 		copyGPUImage(src, nullptr, nullptr, target, dstX, dstY);
 		return;
 	}
@@ -1074,7 +1068,6 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 	paramsToBreakupDirectionFlagset(params, breakupDirectionFlagset);
 
 	if (ons.breakupInitRequired(id)) {
-		sendToLog(LogLevel::Info, "butterflyBreakUp: initBreakup required, initializing\n");
 		ons.initBreakup(id, src, src_rect);
 		if (ons.new_breakup_implementation) {
 			ons.breakupData[id].blitter.set(createTriangleBlitter(src, target));
@@ -1085,9 +1078,6 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 
 	ONScripter::BreakupData &data = ons.breakupData[id];
 	BreakupCell *myCells          = data.breakup_cells.data();
-	sendToLog(LogLevel::Info, "butterflyBreakUp: numCells=%dx%d cellFactor=%d maxDiag=%d new_impl=%d\n",
-	          data.numCellsX, data.numCellsY, data.cellFactor,
-	          data.maxDiagonalToContainBrokenCells, ons.new_breakup_implementation ? 1 : 0);
 
 	if (ons.new_breakup_implementation) {
 		bool largeImage = src_rect ? (src_rect->w >= window.script_width && src_rect->h >= window.script_height) :
@@ -1102,26 +1092,20 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 		ons.effectBreakupNew(id, breakupFactor);
 		drawUnbrokenBreakupRegions(id, dstX, dstY);
 
-		// Render circles IDENTICALLY to regular breakup — this is the base image
-		int drawnCircles = 0;
-		int skippedCells = 0;
+		// Render circles identically to regular breakup
 		for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
 			auto &cell = myCells[n];
 			float x{cell.cell_x * static_cast<float>(data.cellFactor)};
 			float y{cell.cell_y * static_cast<float>(data.cellFactor)};
 			if (cell.diagonal > data.maxDiagonalToContainBrokenCells) {
-				skippedCells = data.numCellsX * data.numCellsY - n;
 				break;
 			}
 			if (cell.resizeFactor > 0) {
 				blitter.useFewerTriangles(cell.resizeFactor < 0.15f);
 				blitter.copyCircle(x, y, 12, x + cell.disp_x + dstX, y + cell.disp_y + dstY, cell.resizeFactor);
-				drawnCircles++;
 			}
 		}
 		blitter.finish();
-		sendToLog(LogLevel::Info, "butterflyBreakUp: drew %d circles, skipped %d cells past diagonal\n",
-		          drawnCircles, skippedCells);
 		if (!largeImage)
 			unsetShaderProgram();
 
@@ -1169,7 +1153,7 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
 		}
 	} else {
-		// Old implementation fallback: just use regular breakup
+		// Old implementation fallback: use regular breakup
 		breakUpImage(id, src, src_rect, target, breakupFactor, breakupDirectionFlagset, params, dstX, dstY);
 	}
 }
