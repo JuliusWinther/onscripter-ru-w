@@ -1075,11 +1075,6 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 	}
 
 	ons.buildButterflyCellforms();
-	if (!ons.butterfly_cellforms_gpu) {
-		// Fallback to regular breakup if butterfly cellforms failed to generate
-		breakUpImage(id, src, src_rect, target, breakupFactor, breakupDirectionFlagset, params, dstX, dstY);
-		return;
-	}
 
 	ONScripter::BreakupData &data = ons.breakupData[id];
 	BreakupCell *myCells          = data.breakup_cells.data();
@@ -1097,60 +1092,60 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 		ons.effectBreakupNew(id, breakupFactor);
 		drawUnbrokenBreakupRegions(id, dstX, dstY);
 
-		float cf = static_cast<float>(data.cellFactor);
-
-		// Draw intact cells (resizeFactor >= 1.0) within the broken region as circles,
-		// just like regular breakup does. drawUnbrokenBreakupRegions only handles the
-		// triangular region beyond maxDiagonalToContainBrokenCells, so cells on broken
-		// diagonals that are still fully intact need to be drawn here.
+		// Draw ALL cells with resizeFactor > 0 as circles through the blitter,
+		// exactly the same way that regular breakup does. This ensures the base
+		// image is always correctly rendered regardless of butterfly overlay.
 		for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
 			auto &cell = myCells[n];
+			float x{cell.cell_x * static_cast<float>(data.cellFactor)};
+			float y{cell.cell_y * static_cast<float>(data.cellFactor)};
 			if (cell.diagonal > data.maxDiagonalToContainBrokenCells) {
 				break;
 			}
-			if (cell.resizeFactor >= 1.0f) {
-				float x = cell.cell_x * cf;
-				float y = cell.cell_y * cf;
-				blitter.copyCircle(x, y, 12, x + dstX, y + dstY, 1.0f);
+			if (cell.resizeFactor > 0) {
+				blitter.useFewerTriangles(cell.resizeFactor < 0.15f);
+				blitter.copyCircle(x, y, 12, x + cell.disp_x + dstX, y + cell.disp_y + dstY, cell.resizeFactor);
 			}
 		}
-
-		// Flush the blitter (unbroken regions + intact cells within broken region)
 		blitter.finish();
 		if (!largeImage)
 			unsetShaderProgram();
 
-		// Now draw butterfly sprites for breaking cells (0 < resizeFactor < 1)
-		uint32_t ticks = SDL_GetTicks();
-		float fw       = static_cast<float>(ons.butterfly_frame_w);
-		float fh       = static_cast<float>(ons.butterfly_frame_h);
+		// Now overlay butterfly sprites on top for breaking cells (0 < resizeFactor < 1).
+		// These replace the visual of the shrinking circles with animated golden butterflies.
+		if (ons.butterfly_cellforms_gpu) {
+			uint32_t ticks = SDL_GetTicks();
+			float fw       = static_cast<float>(ons.butterfly_frame_w);
+			float fh       = static_cast<float>(ons.butterfly_frame_h);
+			float cf       = static_cast<float>(data.cellFactor);
 
-		for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
-			auto &cell = myCells[n];
-			if (cell.diagonal > data.maxDiagonalToContainBrokenCells) {
-				break;
+			for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
+				auto &cell = myCells[n];
+				if (cell.diagonal > data.maxDiagonalToContainBrokenCells) {
+					break;
+				}
+				if (cell.resizeFactor > 0 && cell.resizeFactor < 1.0f) {
+					// Compute animation frame staggered across cells
+					int animFrame = static_cast<int>((ticks / 120 + n) % 4);
+					GPU_Rect bflyRect{static_cast<float>(animFrame % 2) * fw,
+					                  static_cast<float>(animFrame / 2) * fh, fw, fh};
+
+					float cellCenterX = cell.cell_x * cf + cf / 2.0f;
+					float cellCenterY = cell.cell_y * cf + cf / 2.0f;
+					float destX       = cellCenterX + cell.disp_x + dstX - fw * cell.resizeFactor / 2.0f;
+					float destY       = cellCenterY + cell.disp_y + dstY - fh * cell.resizeFactor / 2.0f;
+
+					// Set alpha based on resizeFactor for smooth fade
+					uint8_t alpha = static_cast<uint8_t>(255 * cell.resizeFactor);
+					GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, alpha);
+
+					copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
+					             destX, destY, cell.resizeFactor, cell.resizeFactor);
+				}
 			}
-			if (cell.resizeFactor > 0 && cell.resizeFactor < 1.0f) {
-				// Compute animation frame staggered across cells
-				int animFrame = static_cast<int>((ticks / 120 + n) % 4);
-				GPU_Rect srcRect{static_cast<float>(animFrame % 2) * fw,
-				                 static_cast<float>(animFrame / 2) * fh, fw, fh};
-
-				float cellCenterX = cell.cell_x * cf + cf / 2.0f;
-				float cellCenterY = cell.cell_y * cf + cf / 2.0f;
-				float destX       = cellCenterX + cell.disp_x + dstX - fw * cell.resizeFactor / 2.0f;
-				float destY       = cellCenterY + cell.disp_y + dstY - fh * cell.resizeFactor / 2.0f;
-
-				// Set alpha based on resizeFactor for smooth fade-out
-				uint8_t alpha = static_cast<uint8_t>(255 * cell.resizeFactor);
-				GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, alpha);
-
-				copyGPUImage(ons.butterfly_cellforms_gpu, &srcRect, nullptr, target,
-				             destX, destY, cell.resizeFactor, cell.resizeFactor);
-			}
+			// Reset alpha
+			GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
 		}
-		// Reset alpha
-		GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
 	} else {
 		// Old implementation fallback: just use regular breakup
 		breakUpImage(id, src, src_rect, target, breakupFactor, breakupDirectionFlagset, params, dstX, dstY);
