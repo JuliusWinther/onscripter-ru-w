@@ -1125,7 +1125,7 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			constexpr float bflyScale    = 1.2f;  // butterfly size multiplier
 			constexpr float bflyMinScale = 0.45f; // min scale for visibility
 
-			// ---- BUTTERFLIES (replace circles, with strong golden glow) ----
+			// ---- BUTTERFLIES (replace circles, with 2.5x golden glow) ----
 			for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
 				auto &cell = myCells[n];
 				if (cell.diagonal > data.maxDiagonalToContainBrokenCells)
@@ -1157,31 +1157,90 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 				float alphaF = std::max(0.35f, cell.resizeFactor);
 				uint8_t alpha = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF));
 
-				// Pass 1: Normal draw with bright golden shimmer
+				// Pass 1: Normal draw with golden shimmer
 				float glitter1 = 0.9f + 0.2f * std::sin(ticks * 0.012f + n * 2.1f);
-				uint8_t bright = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter1 * 1.5f));
+				uint8_t bright = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter1 * 1.3f));
 				GPU_SetRGBA(ons.butterfly_cellforms_gpu, bright, bright, bright, alpha);
 				copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
 				             destX, destY, scale, scale, angle, true);
 
-				// Pass 2: Strong additive glow — 4x intensity
+				// Pass 2: Additive glow — 2.5x intensity
 				ons.butterfly_cellforms_gpu->blend_mode = addBlend;
 				float glitter2  = 0.6f + 0.4f * std::sin(ticks * 0.018f + n * 3.7f);
-				uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter2 * 2.0f));
+				uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter2 * 1.25f));
 				GPU_SetRGBA(ons.butterfly_cellforms_gpu, glowVal, glowVal, glowVal, glowVal);
 				copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
-				             destX, destY, scale * 1.4f, scale * 1.4f, angle, true);
+				             destX, destY, scale * 1.3f, scale * 1.3f, angle, true);
 
-				// Pass 3: Second additive glow layer — wider halo
+				// Pass 3: Wider additive halo
 				float glitter3  = 0.5f + 0.5f * std::sin(ticks * 0.009f + n * 1.3f);
-				uint8_t haloVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter3 * 1.5f));
+				uint8_t haloVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter3 * 0.9f));
 				GPU_SetRGBA(ons.butterfly_cellforms_gpu, haloVal, haloVal, haloVal, haloVal);
 				copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
-				             destX, destY, scale * 2.0f, scale * 2.0f, angle, true);
+				             destX, destY, scale * 1.8f, scale * 1.8f, angle, true);
 
 				ons.butterfly_cellforms_gpu->blend_mode = origBflyBlend;
 			}
 			GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
+
+			// ---- GOLDEN FRONTIER MAGIC ----
+			// A cloud of golden light particles along the diagonal frontier
+			// where butterflies meet the forming/dissolving sprite.
+			// Drawn ABOVE both sprite and butterflies as the topmost layer.
+			if (ons.butterfly_cellforms_gpu) {
+				ons.butterfly_cellforms_gpu->blend_mode = addBlend;
+
+				// Frontier = cells near the transition edge (resizeFactor close to 1.0)
+				// These are the cells that JUST settled or are JUST starting to break.
+				constexpr float frontierLo = 0.75f;
+				constexpr float frontierHi = 1.0f;
+
+				for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
+					auto &cell = myCells[n];
+					if (cell.diagonal > data.maxDiagonalToContainBrokenCells)
+						break;
+					if (hasCellContent && !data.cellHasContent[cell.cell_y * data.numCellsX + cell.cell_x])
+						continue;
+
+					// Only cells in the frontier zone (near the wipe line)
+					if (cell.resizeFactor < frontierLo || cell.resizeFactor >= frontierHi)
+						continue;
+
+					// How close to the settled edge (1.0): 0→1
+					float frontierT = (cell.resizeFactor - frontierLo) / (frontierHi - frontierLo);
+
+					// Cell position (at origin, not displaced — on the wipe line itself)
+					float originX = cell.cell_x * cf + dstX;
+					float originY = cell.cell_y * cf + dstY;
+
+					// Multiple golden particles per frontier cell for a dense cloud
+					for (int p = 0; p < 3; ++p) {
+						// Pseudo-random offset per particle using cell index + particle index
+						float seed1 = std::sin(n * 7.13f + p * 3.71f + ticks * 0.005f);
+						float seed2 = std::cos(n * 5.37f + p * 2.93f + ticks * 0.007f);
+						float seed3 = std::sin(n * 11.1f + p * 4.17f + ticks * 0.011f);
+
+						float px = originX + seed1 * cf * 1.5f;
+						float py = originY + seed2 * cf * 1.5f;
+
+						// Sparkle intensity varies per particle
+						float sparkle = 0.4f + 0.6f * (0.5f + 0.5f * seed3);
+						float intensity = sparkle * frontierT * 0.8f;
+
+						uint8_t pVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * intensity));
+						GPU_SetRGBA(ons.butterfly_cellforms_gpu, pVal, pVal, pVal, pVal);
+
+						// Use frame 0 of butterfly sprite as particle shape, drawn large + rotated
+						float pAngle = ticks * 0.1f + n * 37.0f + p * 120.0f;
+						GPU_Rect particleRect{0, 0, fw, fh};
+						copyGPUImage(ons.butterfly_cellforms_gpu, &particleRect, nullptr, target,
+						             px, py, 0.6f, 0.6f, pAngle, true);
+					}
+				}
+
+				ons.butterfly_cellforms_gpu->blend_mode = origBflyBlend;
+				GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
+			}
 		}
 	} else {
 		// Old implementation fallback: use regular breakup
