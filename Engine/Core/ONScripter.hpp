@@ -1245,8 +1245,6 @@ private:
 	bool effect_rect_cleanup{false};
 	int effect_refresh_mode_src, effect_refresh_mode_dst;
 
-	// bool ctrl_pressed_skip_disabled{false}; // W_TEMP
-
 	bool effectskip_flag;
 	bool skip_effect{false};
 	enum {

@@ -474,15 +474,6 @@ int ScriptParser::eventCallbackCommand() {
 	return RET_CONTINUE;
 }
 
-int ScriptParser::ctrlCallbackCommand() { // W_TEMP
-	if (current_mode != DEFINE_MODE)
-		errorAndExit("ctrl_callback: not in the define section");
-
-	script_h.setStr(&ctrl_callback_label, script_h.readLabel() + 1);
-
-	return RET_CONTINUE;
-}
-
 int ScriptParser::returnCommand() {
 	if (callStack.empty() || callStack.back().nest_mode != NestInfo::LABEL)
 		errorAndExit("return: not in gosub");

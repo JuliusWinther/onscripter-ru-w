@@ -32,7 +32,6 @@ static std::unordered_map<HashedString, CommandFunc> func_lut{
     {"hudz", &ScriptParser::hudzCommand},
     {"getstralias", &ScriptParser::getStraliasCommand},
     {"event_callback", &ScriptParser::eventCallbackCommand},
-    {"ctrl_callback", &ScriptParser::ctrlCallbackCommand}, // W_TEMP
     {"disablespeedbuttons", &ScriptParser::disablespeedbuttonsCommand},
     {"borderstyle", &ScriptParser::borderstyleCommand},
 
@@ -202,7 +201,6 @@ void ScriptParser::reset() {
 	pretextgosub_label   = nullptr;
 	loadgosub_label      = nullptr;
 	event_callback_label = nullptr;
-	ctrl_callback_label  = nullptr; // W_TEMP
 
 	/* ---------------------------------------- */
 	/* Sound related variables */

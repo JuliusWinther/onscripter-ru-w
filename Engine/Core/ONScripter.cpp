@@ -1861,27 +1861,13 @@ void ONScripter::executeLabel() {
 			// (Shouldn't there be some kind of other function than the event loop for checks just like these? I can't believe this is the first instance)
 			if (!(skip_mode & SKIP_SUPERSKIP)) {
 				if (!skipIsAllowed() && (keyState.ctrl || skip_mode)) {
-					// gosubReal(ctrl_callback_label, script_h.getCurrent()); // W_TEMP
 					keyState.ctrl = 0;
 					skip_mode     = 0;
-					// ctrl_pressed_skip_disabled = true;
 					eventCallbackRequired = true;
 				}
 			}
 
-			/*if (ctrl_pressed_skip_disabled) { // W_TEMP
-			    ctrl_pressed_skip_disabled = false;
-			    gosubReal(ctrl_callback_label, script_h.getCurrent());
-			}*/
-			// sendToLog(LogLevel::Info, "TEST 0\n");
-
 			int ret{RET_NO_READ};
-			/*if (ctrl_pressed_skip_disabled) {
-			    // sendToLog(LogLevel::Info, "TEST 0\n");
-			    ctrl_pressed_skip_disabled = false;
-			    gosubReal(ctrl_callback_label, script_h.getCurrent());
-			    ret = RET_CONTINUE;
-			} else*/
 			if (event_callback_label && eventCallbackRequired && !inVariableQueueSubroutine && !callStackHasUninterruptible) {
 				gosubReal(event_callback_label, script_h.getCurrent());
 				eventCallbackRequired = false;
