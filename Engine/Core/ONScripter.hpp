@@ -363,6 +363,8 @@ public:
 	int texthideCommand();
 	int textexbtnCommand();
 	int textclearCommand();
+	int textfreezeCommand();
+	int textthawCommand();
 	int textbtnstartCommand();
 	int textbtnoffCommand();
 	int texecCommand();
@@ -836,6 +838,9 @@ public:
 	GPU_Image *text_gpu{nullptr};   // Contains rendered text after dlgCtrl is deactivated
 	GPU_Image *window_gpu{nullptr}; // Contains old text window if dlgCtrl is deactivated and wndCtrl is on
 	GPU_Image *cursor_gpu{nullptr};
+	GPU_Image *frozen_text_gpu{nullptr};   // Snapshot of text_gpu during textfreeze
+	GPU_Image *frozen_window_gpu{nullptr}; // Snapshot of window_gpu during textfreeze
+	bool text_frozen{false};
 
 	GPU_Target *screen_target{nullptr};
 

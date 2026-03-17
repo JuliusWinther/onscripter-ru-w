@@ -342,6 +342,50 @@ int ONScripter::textclearCommand() {
 	return RET_CONTINUE;
 }
 
+int ONScripter::textfreezeCommand() {
+	// Snapshot text_gpu so the screen stays frozen while the script reconfigures the text window
+	if (frozen_text_gpu)
+		gpu.freeImage(frozen_text_gpu);
+	frozen_text_gpu = gpu.createImage(text_gpu->w, text_gpu->h, 4);
+	GPU_GetTarget(frozen_text_gpu);
+	gpu.clearWholeTarget(frozen_text_gpu->target);
+	GPU_SetBlending(text_gpu, false);
+	gpu.copyGPUImage(text_gpu, nullptr, nullptr, frozen_text_gpu->target);
+	GPU_SetBlending(text_gpu, true);
+
+	if (wndCtrl.usingDynamicTextWindow && window_gpu) {
+		if (frozen_window_gpu)
+			gpu.freeImage(frozen_window_gpu);
+		frozen_window_gpu = gpu.createImage(window_gpu->w, window_gpu->h, 4);
+		GPU_GetTarget(frozen_window_gpu);
+		gpu.clearWholeTarget(frozen_window_gpu->target);
+		GPU_SetBlending(window_gpu, false);
+		gpu.copyGPUImage(window_gpu, nullptr, nullptr, frozen_window_gpu->target);
+		GPU_SetBlending(window_gpu, true);
+	}
+
+	text_frozen = true;
+	return RET_CONTINUE;
+}
+
+int ONScripter::textthawCommand() {
+	text_frozen = false;
+
+	if (frozen_text_gpu) {
+		gpu.freeImage(frozen_text_gpu);
+		frozen_text_gpu = nullptr;
+	}
+	if (frozen_window_gpu) {
+		gpu.freeImage(frozen_window_gpu);
+		frozen_window_gpu = nullptr;
+	}
+
+	addTextWindowClip(dirty_rect_hud);
+	commitVisualState();
+	flush(refreshMode());
+	return RET_CONTINUE;
+}
+
 int ONScripter::textbtnstartCommand() {
 	txtbtn_start_num = script_h.readInt();
 
