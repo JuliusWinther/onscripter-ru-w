@@ -447,6 +447,7 @@ public:
 	int ispageCommand();
 	int isfullCommand();
 	int isskipCommand();
+	int isctrlCommand();
 	int isdownCommand();
 	int inputCommand();
 	int indentCommand();

@@ -374,6 +374,7 @@ static std::unordered_map<HashedString, CommandFunc> func_lut{
     {"jumpb", &ONScripter::jumpbCommand},
     {"isfull", &ONScripter::isfullCommand},
     {"isskip", &ONScripter::isskipCommand},
+    {"isctrl", &ONScripter::isctrlCommand},
     {"ispage", &ONScripter::ispageCommand},
     {"isdown", &ONScripter::isdownCommand},
     {"insertmenu", &ONScripter::insertmenuCommand},

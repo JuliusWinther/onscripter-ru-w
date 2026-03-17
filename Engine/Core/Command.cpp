@@ -2032,6 +2032,34 @@ int ONScripter::isfullCommand() {
 	return RET_CONTINUE;
 }
 
+int ONScripter::isctrlCommand() {
+	script_h.readInt();
+
+	bool skipOrAutoDisabled = !skip_enabled || !automode_flag;
+	const uint8_t *sdlKeyState = SDL_GetKeyboardState(nullptr);
+	uint32_t mouseState = SDL_GetMouseState(nullptr, nullptr);
+
+	if (sdlKeyState[SDL_SCANCODE_LCTRL] || sdlKeyState[SDL_SCANCODE_RCTRL]) {
+		if (!skip_enabled)
+			script_h.setInt(&script_h.current_variable, 1);
+		else
+			script_h.setInt(&script_h.current_variable, 0);
+	} else if (sdlKeyState[SDL_SCANCODE_A] && skipOrAutoDisabled) {
+		script_h.setInt(&script_h.current_variable, 2);
+	} else if (skipOrAutoDisabled &&
+	           (mouseState & (SDL_BUTTON_LMASK | SDL_BUTTON_RMASK) ||
+	            sdlKeyState[SDL_SCANCODE_SPACE] ||
+	            sdlKeyState[SDL_SCANCODE_RETURN] ||
+	            sdlKeyState[SDL_SCANCODE_KP_ENTER] ||
+	            sdlKeyState[SDL_SCANCODE_ESCAPE])) {
+		script_h.setInt(&script_h.current_variable, 4);
+	} else {
+		script_h.setInt(&script_h.current_variable, 0);
+	}
+
+	return RET_CONTINUE;
+}
+
 int ONScripter::isskipCommand() {
 	script_h.readInt();
 
