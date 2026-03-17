@@ -1184,15 +1184,14 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
 
 			// ---- GOLDEN FRONTIER MAGIC ----
-			// A cloud of golden light particles along the diagonal frontier
-			// where butterflies meet the forming/dissolving sprite.
+			// Dense cloud of large golden glow particles along the diagonal
+			// frontier where butterflies meet the forming/dissolving sprite.
 			// Drawn ABOVE both sprite and butterflies as the topmost layer.
 			if (ons.butterfly_cellforms_gpu) {
 				ons.butterfly_cellforms_gpu->blend_mode = addBlend;
 
-				// Frontier = cells near the transition edge (resizeFactor close to 1.0)
-				// These are the cells that JUST settled or are JUST starting to break.
-				constexpr float frontierLo = 0.75f;
+				// Wide frontier zone to create a broad magical band
+				constexpr float frontierLo = 0.55f;
 				constexpr float frontierHi = 1.0f;
 
 				for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
@@ -1201,40 +1200,46 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 						break;
 					if (hasCellContent && !data.cellHasContent[cell.cell_y * data.numCellsX + cell.cell_x])
 						continue;
-
-					// Only cells in the frontier zone (near the wipe line)
 					if (cell.resizeFactor < frontierLo || cell.resizeFactor >= frontierHi)
 						continue;
 
-					// How close to the settled edge (1.0): 0→1
+					// 0→1 as cell approaches the settled edge
 					float frontierT = (cell.resizeFactor - frontierLo) / (frontierHi - frontierLo);
+					// Bell curve: peak intensity at center of frontier band
+					float bellT = 1.0f - 4.0f * (frontierT - 0.5f) * (frontierT - 0.5f);
+					bellT = std::max(0.0f, bellT);
 
-					// Cell position (at origin, not displaced — on the wipe line itself)
-					float originX = cell.cell_x * cf + dstX;
-					float originY = cell.cell_y * cf + dstY;
+					// Cell position on the wipe line (at its current partial displacement)
+					float partialDisp = 1.0f - cell.resizeFactor; // how far displaced
+					float originX = cell.cell_x * cf + cell.disp_x * 0.3f + dstX;
+					float originY = cell.cell_y * cf + cell.disp_y * 0.3f + dstY;
 
-					// Multiple golden particles per frontier cell for a dense cloud
-					for (int p = 0; p < 3; ++p) {
-						// Pseudo-random offset per particle using cell index + particle index
-						float seed1 = std::sin(n * 7.13f + p * 3.71f + ticks * 0.005f);
-						float seed2 = std::cos(n * 5.37f + p * 2.93f + ticks * 0.007f);
-						float seed3 = std::sin(n * 11.1f + p * 4.17f + ticks * 0.011f);
+					// 5 golden particles per frontier cell for a thick cloud
+					for (int p = 0; p < 5; ++p) {
+						float seed1 = std::sin(n * 7.13f + p * 3.71f + ticks * 0.004f);
+						float seed2 = std::cos(n * 5.37f + p * 2.93f + ticks * 0.005f);
+						float seed3 = std::sin(n * 11.1f + p * 4.17f + ticks * 0.009f);
 
-						float px = originX + seed1 * cf * 1.5f;
-						float py = originY + seed2 * cf * 1.5f;
+						// Scatter particles over a wider area around the frontier
+						float px = originX + seed1 * cf * 2.5f;
+						float py = originY + seed2 * cf * 2.5f;
 
-						// Sparkle intensity varies per particle
-						float sparkle = 0.4f + 0.6f * (0.5f + 0.5f * seed3);
-						float intensity = sparkle * frontierT * 0.8f;
+						// Strong sparkle intensity
+						float sparkle = 0.5f + 0.5f * (0.5f + 0.5f * seed3);
+						float intensity = sparkle * bellT;
 
 						uint8_t pVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * intensity));
+						if (pVal < 5) continue;
 						GPU_SetRGBA(ons.butterfly_cellforms_gpu, pVal, pVal, pVal, pVal);
 
-						// Use frame 0 of butterfly sprite as particle shape, drawn large + rotated
-						float pAngle = ticks * 0.1f + n * 37.0f + p * 120.0f;
-						GPU_Rect particleRect{0, 0, fw, fh};
+						// Large glowing particles — animated butterfly frames spinning slowly
+						int pFrame = static_cast<int>((ticks / 50 + n + p) % 4);
+						GPU_Rect particleRect{static_cast<float>(pFrame) * fw, 0, fw, fh};
+						float pAngle = ticks * 0.05f + n * 37.0f + p * 72.0f;
+						// Big particle size: 1.5-2.5x based on which particle
+						float pScale = 1.5f + p * 0.25f;
 						copyGPUImage(ons.butterfly_cellforms_gpu, &particleRect, nullptr, target,
-						             px, py, 0.6f, 0.6f, pAngle, true);
+						             px, py, pScale, pScale, pAngle, true);
 					}
 				}
 
