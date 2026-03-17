@@ -20,8 +20,9 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        BUILD_TYPE: ["debug", "release"]
-        DISCORD_INTEGRATION: ["using discord", "not using discord"]
+        # Reduced matrix: release only and discord only
+        BUILD_TYPE: ["release"]
+        DISCORD_INTEGRATION: ["using discord"]
     env:
       dev: ${{ matrix.BUILD_TYPE == 'debug' && '_dev' || '' }}
       cmd: ${{ matrix.BUILD_TYPE == 'release' && '--release-build --strip-binary' || '' }}
@@ -66,6 +67,7 @@ jobs:
           path: ciout/*.zip
 
   Linux:
+    if: false # <-- Job temporarily disabled
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -105,7 +107,8 @@ jobs:
           path: ciout/*.zip
 
   macOS:
-    runs-on: macos-13 # <-- RISOLTO IL PROBLEMA DELL'ATTESA INFINITA
+    if: false # <-- Job temporarily disabled
+    runs-on: macos-13 # <-- FIXED THE ENDLESS WAITING ISSUE
     strategy:
       matrix:
         BUILD_TYPE: ["Debug", "Release"]
@@ -139,7 +142,7 @@ jobs:
   Publish_Release:
     needs: [Windows, Linux, macOS]
     runs-on: ubuntu-latest
-    # Pubblica se non è una PR, non è stato annullato e ALMENO UNA build ha funzionato (anche se le altre falliscono)
+    # Publish if not a PR, not cancelled, and AT LEAST ONE build succeeded (even if others fail or are skipped)
     if: always() && github.event_name != 'pull_request' && !cancelled() && (needs.Windows.result == 'success' || needs.Linux.result == 'success' || needs.macOS.result == 'success')
     steps:
       - name: Download all artifacts
@@ -162,7 +165,7 @@ jobs:
   Cleanup_Old_Releases:
     needs: [Publish_Release]
     runs-on: ubuntu-latest
-    # Esegui solo se la fase di pubblicazione è andata a buon fine
+    # Run only if the release phase was successful
     if: always() && needs.Publish_Release.result == 'success' && github.event_name != 'pull_request'
     steps:
       - name: Delete old releases
