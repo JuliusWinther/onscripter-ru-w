@@ -2,9 +2,9 @@ name: Release
 
 on:
   push:
-    branches: ["master", "test", "butterfly"]
+    branches: ["master", "test", "butterfly", "noskip-implement"]
   pull_request:
-    branches: ["master", "test", "butterfly"]
+    branches: ["master", "test", "butterfly", "noskip-implement"]
   workflow_dispatch:
     inputs:
       build_type:
