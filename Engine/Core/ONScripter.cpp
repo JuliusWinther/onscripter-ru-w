@@ -460,6 +460,7 @@ static std::unordered_map<HashedString, CommandFunc> func_lut{
     {"d2", &ONScripter::dialogueCommand},                 // ons-ru
     {"d", &ONScripter::dialogueCommand},                  // ons-ru
     {"d_repaint", &ONScripter::reloadDialogueCommand},    // W_TEMP2
+    {"d_relayout", &ONScripter::relayoutDialogueCommand},
     {"csp2", &ONScripter::cspCommand},
     {"csp", &ONScripter::cspCommand},
     {"cselgoto", &ONScripter::cselgotoCommand},
