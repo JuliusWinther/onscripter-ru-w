@@ -2820,11 +2820,6 @@ int ONScripter::reloadDialogueCommand() { // W_TEMP2
 	// così da consentire di entrare nuovamente in modalità "dialogue command".
 	dlgCtrl.scriptState.disposeDialogue(true);
 
-	// Pulisce il render state e resetta layoutDone, altrimenti textCommand()
-	// salterà layoutDialogue() perché layoutDone è ancora true dal layout precedente.
-	dlgCtrl.dialogueRenderState.clear();
-	dlgCtrl.dialogueProcessingState.layoutDone = false;
-
 	// Imposta il flag di dialogo come non attivo, in modo che dialogueCommand()
 	// rilegga il testo (e non si limiti a fare un semplice readToEol())
 	dlgCtrl.dialogueProcessingState.active = false;
