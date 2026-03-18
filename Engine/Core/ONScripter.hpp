@@ -317,7 +317,6 @@ public:
 	int dialogueNameCommand();
 	int dialogueCommand();
 	int reloadDialogueCommand(); // W_TEMP2
-	int relayoutDialogueCommand();
 	int dialogueAddEndsCommand();
 	int debugStrCommand();
 	int customCursorCommand();

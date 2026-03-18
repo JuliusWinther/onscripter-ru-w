@@ -2841,31 +2841,6 @@ int ONScripter::reloadDialogueCommand() { // W_TEMP2
 	return RET_CONTINUE;
 }
 
-int ONScripter::relayoutDialogueCommand() {
-	// Re-layout existing dialogue text with current font/window settings
-	// without re-executing the dialogue command (no script state swap needed).
-	if (!dlgCtrl.dialogueProcessingState.active)
-		return RET_CONTINUE;
-
-	// Clear the render state but keep dataPart intact
-	dlgCtrl.dialogueRenderState.clear();
-	dlgCtrl.textPart = "";
-	dlgCtrl.dialogueProcessingState.layoutDone = false;
-
-	// Re-layout using current sentence_font settings (position, wrap_limit, etc.)
-	dlgCtrl.layoutDialogue();
-
-	// Make all segments visible instantly (no typewriter animation)
-	dlgCtrl.untimeAllDialogueSegments();
-
-	// Mark text area dirty and flush to screen
-	addTextWindowClip(dirty_rect_hud);
-	commitVisualState();
-	flush(refreshMode());
-
-	return RET_CONTINUE;
-}
-
 int ONScripter::dialogueNameCommand() {
 	if (script_h.isName("d_name_refresh")) {
 		dlgCtrl.nameLayouted = false;
