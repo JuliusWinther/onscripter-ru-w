@@ -267,8 +267,6 @@ static std::unordered_map<HashedString, CommandFunc> func_lut{
     {"texthide", &ONScripter::texthideCommand},
     {"textexbtn", &ONScripter::textexbtnCommand},
     {"textclear", &ONScripter::textclearCommand},
-    {"textfreeze", &ONScripter::textfreezeCommand},
-    {"textthaw", &ONScripter::textthawCommand},
     {"textbtnwait", &ONScripter::btnwaitCommand},
     {"textbtnstart", &ONScripter::textbtnstartCommand},
     {"textbtnoff", &ONScripter::textbtnoffCommand},

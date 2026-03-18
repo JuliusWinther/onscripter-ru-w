@@ -943,9 +943,7 @@ use buttons & text this way */
 	drawSpritesBetween(z_order_hud, z_order_window, target, &script_clip_dst, rm);
 
 	if (refresh_mode & REFRESH_WINDOW_MODE) {
-		if (text_frozen && frozen_window_gpu) {
-			gpu.copyGPUImage(frozen_window_gpu, nullptr, &canvas_clip_dst, target, camera.center_pos.x, camera.center_pos.y);
-		} else if (wndCtrl.usingDynamicTextWindow) {
+		if (wndCtrl.usingDynamicTextWindow) {
 			if (!dlgCtrl.dialogueProcessingState.active) {
 				gpu.copyGPUImage(window_gpu, nullptr, &canvas_clip_dst, target, camera.center_pos.x, camera.center_pos.y);
 			} else {
@@ -953,13 +951,9 @@ use buttons & text this way */
 				renderDynamicTextWindow(target, &canvas_clip_dst, rm);
 			}
 		} else {
-			if (text_frozen) {
-				// When frozen without dynamic window, still show the frozen sentence_font_info
-			} else {
-				AnimationInfo *si = sentence_font_info.oldNew(rm);
-				if (si->exists)
-					drawToGPUTarget(target, si, rm, &script_clip_dst);
-			}
+			AnimationInfo *si = sentence_font_info.oldNew(rm);
+			if (si->exists)
+				drawToGPUTarget(target, si, rm, &script_clip_dst);
 		}
 	}
 
@@ -975,13 +969,8 @@ use buttons & text this way */
 				drawToGPUTarget(target, spr, rm, &script_clip_dst);
 	}
 
-	if (refresh_mode & REFRESH_TEXT_MODE) {
-		if (text_frozen && frozen_text_gpu) {
-			gpu.copyGPUImage(frozen_text_gpu, nullptr, &canvas_clip_dst, target, camera.center_pos.x, camera.center_pos.y);
-		} else {
-			dlgCtrl.renderDialogueToTarget(target, &canvas_clip_dst, rm);
-		}
-	}
+	if (refresh_mode & REFRESH_TEXT_MODE)
+		dlgCtrl.renderDialogueToTarget(target, &canvas_clip_dst, rm);
 
 	if (refresh_mode & REFRESH_CURSOR_MODE && !textgosub_label && !enable_custom_cursors) {
 		if (clickstr_state == CLICK_WAIT)
