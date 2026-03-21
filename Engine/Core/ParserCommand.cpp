@@ -323,7 +323,7 @@ int ScriptParser::butterflysetCommand() {
 	// Syntax: butterflyset <bflyScale> <bflyMinScale> <glowScale> <glowIntensity>
 	//           <haloScale> <haloIntensity> <frontierParticles> <frontierLo>
 	//           <frontierHi> <frontierScatter> <particleScaleMin> <particleScaleStep>
-	auto &bp       = ons.butterflyParams;
+	auto &bp       = butterflyParams;
 	bp.bflyScale   = script_h.readInt() / 100.0f;
 	bp.bflyMinScale = script_h.readInt() / 100.0f;
 

@@ -1323,30 +1323,6 @@ private:
 	void buildButterflyCellforms();
 	void effectButterflyBreakupParser(const char *params, int refresh_mode_src, int refresh_mode_dst);
 
-	struct ButterflyBreakupParams {
-		// Butterfly base sizing
-		float bflyScale{1.2f};       // butterfly size multiplier
-		float bflyMinScale{0.45f};   // minimum scale during dissolve
-
-		// Glow pass 2 (additive glow)
-		float glowScale{1.3f};       // scale multiplier relative to butterfly
-		float glowIntensity{1.25f};  // brightness multiplier
-
-		// Glow pass 3 (wider halo)
-		float haloScale{1.8f};       // scale multiplier relative to butterfly
-		float haloIntensity{0.9f};   // brightness multiplier
-
-		// Frontier particle cloud
-		int   frontierParticles{5};  // particles per frontier cell
-		float frontierLo{0.55f};     // lower resizeFactor threshold
-		float frontierHi{1.0f};      // upper resizeFactor threshold
-		float frontierScatter{2.5f}; // scatter radius in cellFactor units
-
-		// Frontier particle size range
-		float particleScaleMin{1.5f};  // smallest particle scale
-		float particleScaleStep{0.25f}; // scale increment per particle index
-	};
-	ButterflyBreakupParams butterflyParams;
 
 	/* ---------------------------------------- */
 	/* Glass smash related */

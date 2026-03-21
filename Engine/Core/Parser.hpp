@@ -273,6 +273,22 @@ protected:
 	int z_order_ld{499}, z_order_hud{99}, z_order_window{49}, z_order_text{-1};
 	std::map<int, int> z_order_spritesets;
 
+	struct ButterflyBreakupParams {
+		float bflyScale{1.2f};
+		float bflyMinScale{0.45f};
+		float glowScale{1.3f};
+		float glowIntensity{1.25f};
+		float haloScale{1.8f};
+		float haloIntensity{0.9f};
+		int   frontierParticles{5};
+		float frontierLo{0.55f};
+		float frontierHi{1.0f};
+		float frontierScatter{2.5f};
+		float particleScaleMin{1.5f};
+		float particleScaleStep{0.25f};
+	};
+	ButterflyBreakupParams butterflyParams;
+
 	bool rmode_flag;
 	bool btnnowindowerase_flag;
 	bool usewheel_flag;
