@@ -83,6 +83,7 @@ public:
 	int eventCallbackCommand();
 	int disablespeedbuttonsCommand();
 	int borderstyleCommand();
+	int butterflysetCommand();
 
 	int zenkakkoCommand();
 	int windowchipCommand();

@@ -34,6 +34,7 @@ static std::unordered_map<HashedString, CommandFunc> func_lut{
     {"event_callback", &ScriptParser::eventCallbackCommand},
     {"disablespeedbuttons", &ScriptParser::disablespeedbuttonsCommand},
     {"borderstyle", &ScriptParser::borderstyleCommand},
+    {"butterflyset", &ScriptParser::butterflysetCommand},
 
     {"zenkakko", &ScriptParser::zenkakkoCommand},
     {"windoweffect", &ScriptParser::effectCommand},

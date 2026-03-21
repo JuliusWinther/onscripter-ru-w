@@ -1122,8 +1122,8 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 
 			GPU_BlendMode origBflyBlend = ons.butterfly_cellforms_gpu->blend_mode;
 
-			constexpr float bflyScale    = 1.2f;  // butterfly size multiplier
-			constexpr float bflyMinScale = 0.45f; // min scale for visibility
+			const float bflyScale    = ons.butterflyParams.bflyScale;
+			const float bflyMinScale = ons.butterflyParams.bflyMinScale;
 
 			// ---- BUTTERFLIES (replace circles, with 2.5x golden glow) ----
 			for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
@@ -1164,20 +1164,24 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 				copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
 				             destX, destY, scale, scale, angle, true);
 
-				// Pass 2: Additive glow — 2.5x intensity
+				// Pass 2: Additive glow
 				ons.butterfly_cellforms_gpu->blend_mode = addBlend;
+				float glowSc    = ons.butterflyParams.glowScale;
+				float glowInt   = ons.butterflyParams.glowIntensity;
 				float glitter2  = 0.6f + 0.4f * std::sin(ticks * 0.018f + n * 3.7f);
-				uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter2 * 1.25f));
+				uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter2 * glowInt));
 				GPU_SetRGBA(ons.butterfly_cellforms_gpu, glowVal, glowVal, glowVal, glowVal);
 				copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
-				             destX, destY, scale * 1.3f, scale * 1.3f, angle, true);
+				             destX, destY, scale * glowSc, scale * glowSc, angle, true);
 
 				// Pass 3: Wider additive halo
+				float haloSc    = ons.butterflyParams.haloScale;
+				float haloInt   = ons.butterflyParams.haloIntensity;
 				float glitter3  = 0.5f + 0.5f * std::sin(ticks * 0.009f + n * 1.3f);
-				uint8_t haloVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter3 * 0.9f));
+				uint8_t haloVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter3 * haloInt));
 				GPU_SetRGBA(ons.butterfly_cellforms_gpu, haloVal, haloVal, haloVal, haloVal);
 				copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
-				             destX, destY, scale * 1.8f, scale * 1.8f, angle, true);
+				             destX, destY, scale * haloSc, scale * haloSc, angle, true);
 
 				ons.butterfly_cellforms_gpu->blend_mode = origBflyBlend;
 			}
@@ -1191,8 +1195,8 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 				ons.butterfly_cellforms_gpu->blend_mode = addBlend;
 
 				// Wide frontier zone to create a broad magical band
-				constexpr float frontierLo = 0.55f;
-				constexpr float frontierHi = 1.0f;
+				const float frontierLo = ons.butterflyParams.frontierLo;
+				const float frontierHi = ons.butterflyParams.frontierHi;
 
 				for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
 					auto &cell = myCells[n];
@@ -1214,15 +1218,17 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 					float originX = cell.cell_x * cf + cell.disp_x * 0.3f + dstX;
 					float originY = cell.cell_y * cf + cell.disp_y * 0.3f + dstY;
 
-					// 5 golden particles per frontier cell for a thick cloud
-					for (int p = 0; p < 5; ++p) {
+					// Golden particles per frontier cell for a thick cloud
+					int frontierParts = ons.butterflyParams.frontierParticles;
+					for (int p = 0; p < frontierParts; ++p) {
 						float seed1 = std::sin(n * 7.13f + p * 3.71f + ticks * 0.004f);
 						float seed2 = std::cos(n * 5.37f + p * 2.93f + ticks * 0.005f);
 						float seed3 = std::sin(n * 11.1f + p * 4.17f + ticks * 0.009f);
 
 						// Scatter particles over a wider area around the frontier
-						float px = originX + seed1 * cf * 2.5f;
-						float py = originY + seed2 * cf * 2.5f;
+						float scatter = ons.butterflyParams.frontierScatter;
+						float px = originX + seed1 * cf * scatter;
+						float py = originY + seed2 * cf * scatter;
 
 						// Strong sparkle intensity
 						float sparkle = 0.5f + 0.5f * (0.5f + 0.5f * seed3);
@@ -1236,8 +1242,8 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 						int pFrame = static_cast<int>((ticks / 50 + n + p) % 4);
 						GPU_Rect particleRect{static_cast<float>(pFrame) * fw, 0, fw, fh};
 						float pAngle = ticks * 0.05f + n * 37.0f + p * 72.0f;
-						// Big particle size: 1.5-2.5x based on which particle
-						float pScale = 1.5f + p * 0.25f;
+						// Particle size based on index
+						float pScale = ons.butterflyParams.particleScaleMin + p * ons.butterflyParams.particleScaleStep;
 						copyGPUImage(ons.butterfly_cellforms_gpu, &particleRect, nullptr, target,
 						             px, py, pScale, pScale, pAngle, true);
 					}

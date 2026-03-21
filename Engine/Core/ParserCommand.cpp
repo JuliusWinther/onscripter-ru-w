@@ -315,6 +315,39 @@ int ScriptParser::borderstyleCommand() {
 	return RET_CONTINUE;
 }
 
+int ScriptParser::butterflysetCommand() {
+	if (current_mode != DEFINE_MODE)
+		errorAndExit("butterflyset: not in the define section");
+
+	// All float parameters are passed as integers divided by 100 (e.g. 120 = 1.20)
+	// Syntax: butterflyset <bflyScale> <bflyMinScale> <glowScale> <glowIntensity>
+	//           <haloScale> <haloIntensity> <frontierParticles> <frontierLo>
+	//           <frontierHi> <frontierScatter> <particleScaleMin> <particleScaleStep>
+	auto &bp       = ons.butterflyParams;
+	bp.bflyScale   = script_h.readInt() / 100.0f;
+	bp.bflyMinScale = script_h.readInt() / 100.0f;
+
+	if (script_h.hasMoreArgs()) bp.glowScale       = script_h.readInt() / 100.0f;
+	if (script_h.hasMoreArgs()) bp.glowIntensity    = script_h.readInt() / 100.0f;
+	if (script_h.hasMoreArgs()) bp.haloScale        = script_h.readInt() / 100.0f;
+	if (script_h.hasMoreArgs()) bp.haloIntensity    = script_h.readInt() / 100.0f;
+	if (script_h.hasMoreArgs()) bp.frontierParticles = script_h.readInt();
+	if (script_h.hasMoreArgs()) bp.frontierLo       = script_h.readInt() / 100.0f;
+	if (script_h.hasMoreArgs()) bp.frontierHi       = script_h.readInt() / 100.0f;
+	if (script_h.hasMoreArgs()) bp.frontierScatter  = script_h.readInt() / 100.0f;
+	if (script_h.hasMoreArgs()) bp.particleScaleMin  = script_h.readInt() / 100.0f;
+	if (script_h.hasMoreArgs()) bp.particleScaleStep = script_h.readInt() / 100.0f;
+
+	sendToLog(LogLevel::Info, "butterflyset: bflyScale=%.2f bflyMinScale=%.2f glowScale=%.2f glowInt=%.2f "
+	          "haloScale=%.2f haloInt=%.2f frontierPart=%d frontierLo=%.2f frontierHi=%.2f "
+	          "frontierScatter=%.2f pScaleMin=%.2f pScaleStep=%.2f\n",
+	          bp.bflyScale, bp.bflyMinScale, bp.glowScale, bp.glowIntensity,
+	          bp.haloScale, bp.haloIntensity, bp.frontierParticles, bp.frontierLo, bp.frontierHi,
+	          bp.frontierScatter, bp.particleScaleMin, bp.particleScaleStep);
+
+	return RET_CONTINUE;
+}
+
 // Mion
 int ScriptParser::setlayerCommand() {
 	if (current_mode != DEFINE_MODE)
