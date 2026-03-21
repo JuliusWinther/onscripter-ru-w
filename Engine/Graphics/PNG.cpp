@@ -226,6 +226,9 @@ SDL_Surface *PNGLoader::loadPng(SDL_RWops *src) {
 		row_pointers[row] = static_cast<png_bytep>(surface->pixels) + row * surface->pitch;
 	}
 
+	/* Handle interlaced PNGs */
+	png_set_interlace_handling(png_ptr);
+
 	/* Read the entire image in one go */
 	this->png_read_image(png_ptr, row_pointers);
 
