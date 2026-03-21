@@ -2836,6 +2836,41 @@ int ONScripter::reloadDialogueCommand() { // W_TEMP2
 	return RET_CONTINUE;
 }
 
+int ONScripter::relayoutDialogueCommand() {
+	// Re-layout existing dialogue text with current font/window parameters
+	// without touching the script state. Safe to call mid-dialogue.
+	if (!dlgCtrl.dialogueProcessingState.active)
+		return RET_CONTINUE;
+
+	if (dlgCtrl.dataPart.empty())
+		return RET_CONTINUE;
+
+	// Save current segment index so we can restore visibility
+	int savedSegmentIndex = dlgCtrl.dialogueRenderState.segmentIndex;
+
+	// Clear layout data but keep dataPart intact
+	dlgCtrl.dialogueRenderState.clear();
+	dlgCtrl.dialogueProcessingState.layoutDone = false;
+	dlgCtrl.textPart = "";
+
+	// Re-layout with current sentence_font parameters (position, wrap_limit, etc.)
+	dlgCtrl.layoutDialogue();
+
+	// Restore segment index so all previously visible segments remain visible
+	int maxIndex = static_cast<int>(dlgCtrl.dialogueRenderState.segments.size()) - 1;
+	dlgCtrl.dialogueRenderState.segmentIndex = std::min(savedSegmentIndex, maxIndex);
+
+	// Make all restored segments instantly visible (no fade animation)
+	dlgCtrl.untimeAllDialogueSegments();
+
+	// Refresh the screen
+	addTextWindowClip(dirty_rect_hud);
+	commitVisualState();
+	flush(refreshMode());
+
+	return RET_CONTINUE;
+}
+
 int ONScripter::dialogueNameCommand() {
 	if (script_h.isName("d_name_refresh")) {
 		dlgCtrl.nameLayouted = false;
