@@ -1191,6 +1191,9 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			// Dense cloud of large golden glow particles along the diagonal
 			// frontier where butterflies meet the forming/dissolving sprite.
 			// Drawn ABOVE both sprite and butterflies as the topmost layer.
+			// We extend a few diagonals past the breaking edge into the unbroken
+			// region so that the glow covers the seam between the triangle and
+			// the butterfly zone, preventing a visible diagonal line.
 			if (ons.butterfly_cellforms_gpu) {
 				ons.butterfly_cellforms_gpu->blend_mode = addBlend;
 
@@ -1198,23 +1201,36 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 				const float frontierLo = ons.butterflyParams.frontierLo;
 				const float frontierHi = ons.butterflyParams.frontierHi;
 
+				// How many diagonals of intact cells past the frontier to cover
+				constexpr int frontierOverlap = 3;
+				int maxFrontierDiag = data.maxDiagonalToContainBrokenCells + frontierOverlap;
+
 				for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
 					auto &cell = myCells[n];
-					if (cell.diagonal > data.maxDiagonalToContainBrokenCells)
+					if (cell.diagonal > maxFrontierDiag)
 						break;
 					if (hasCellContent && !data.cellHasContent[cell.cell_y * data.numCellsX + cell.cell_x])
 						continue;
-					if (cell.resizeFactor < frontierLo || cell.resizeFactor >= frontierHi)
-						continue;
 
-					// 0→1 as cell approaches the settled edge
-					float frontierT = (cell.resizeFactor - frontierLo) / (frontierHi - frontierLo);
-					// Bell curve: peak intensity at center of frontier band
-					float bellT = 1.0f - 4.0f * (frontierT - 0.5f) * (frontierT - 0.5f);
-					bellT = std::max(0.0f, bellT);
+					float bellT;
+					if (cell.resizeFactor >= frontierHi) {
+						// Intact cell overlapping the frontier — fade by diagonal distance
+						int dist = cell.diagonal - data.maxDiagonalToContainBrokenCells;
+						if (dist <= 0) continue;
+						bellT = 1.0f - static_cast<float>(dist) / (frontierOverlap + 1);
+						if (bellT <= 0.0f) continue;
+						bellT *= 0.6f; // softer for overlap cells
+					} else if (cell.resizeFactor < frontierLo) {
+						continue;
+					} else {
+						// Normal frontier cell — bell curve but clamped to a minimum
+						// so intensity doesn't vanish near frontierHi
+						float frontierT = (cell.resizeFactor - frontierLo) / (frontierHi - frontierLo);
+						bellT = 1.0f - 4.0f * (frontierT - 0.5f) * (frontierT - 0.5f);
+						bellT = std::max(0.2f, bellT); // never drop below 0.2
+					}
 
 					// Cell position on the wipe line (at its current partial displacement)
-					float partialDisp = 1.0f - cell.resizeFactor; // how far displaced
 					float originX = cell.cell_x * cf + cell.disp_x * 0.3f + dstX;
 					float originY = cell.cell_y * cf + cell.disp_y * 0.3f + dstY;
 
