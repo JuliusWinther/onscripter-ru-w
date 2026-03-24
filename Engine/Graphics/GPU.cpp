@@ -1140,8 +1140,8 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 
 				float scale = std::max(bflyMinScale, cell.resizeFactor) * bflyScale;
 
-				// Fast wing animation: 20ms per frame → full flap cycle in 80ms
-				int animFrame = static_cast<int>((ticks / 20 + n) % 4);
+				// Wing animation: 55ms per frame → full flap cycle in ~220ms (visible during brief flight)
+				int animFrame = static_cast<int>((ticks / 55 + n) % 4);
 				GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
 
 				// Movement direction angle
