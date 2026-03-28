@@ -70,6 +70,24 @@ void ONScripter::buildButterflyCellforms() {
 		sendToLog(LogLevel::Warn, "butterfly-cellforms.png not found in embedded resources, butterfly overlay disabled\n");
 	}
 
+	// Load black butterfly sprite sheet
+	const InternalResource *resBlack = getResource("butterfly-cellforms-black.png");
+	if (resBlack) {
+		SDL_RWops *rwBlack        = SDL_RWFromConstMem(resBlack->buffer, static_cast<int>(resBlack->size));
+		SDL_Surface *surfaceBlack = IMG_Load_RW(rwBlack, 0);
+		butterfly_cellforms_black_gpu = gpu.copyImageFromSurface(surfaceBlack);
+		SDL_FreeSurface(surfaceBlack);
+		gpu.multiplyAlpha(butterfly_cellforms_black_gpu, nullptr);
+		butterfly_black_frame_w = butterfly_cellforms_black_gpu->w / 4;
+		butterfly_black_frame_h = butterfly_cellforms_black_gpu->h;
+		GPU_SetImageFilter(butterfly_cellforms_black_gpu, GPU_FILTER_LINEAR);
+		GPU_SetBlending(butterfly_cellforms_black_gpu, true);
+		sendToLog(LogLevel::Info, "Loaded butterfly cellforms black: %dx%d, frame size %dx%d\n",
+		          butterfly_cellforms_black_gpu->w, butterfly_cellforms_black_gpu->h, butterfly_black_frame_w, butterfly_black_frame_h);
+	} else {
+		sendToLog(LogLevel::Warn, "butterfly-cellforms-black.png not found in embedded resources\n");
+	}
+
 	// Generate golden orb texture procedurally (radial gradient, warm gold)
 	if (!butterfly_orb_gpu) {
 		constexpr int orbSize = 48;

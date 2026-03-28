@@ -286,6 +286,7 @@ protected:
 		float frontierScatter{2.5f};
 		float particleScaleMin{1.5f};
 		float particleScaleStep{0.25f};
+		int   useBlackCellforms{0};
 	};
 	ButterflyBreakupParams butterflyParams;
 

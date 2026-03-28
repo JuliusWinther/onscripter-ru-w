@@ -1099,10 +1099,17 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 		// Each butterfly is positioned exactly where its circle would be,
 		// rotated to face the cell's movement direction (xMovement, yMovement).
 		ons.buildButterflyCellforms();
-		if (ons.butterfly_cellforms_gpu) {
+		GPU_Image *bflyCellforms = (ons.butterflyParams.useBlackCellforms && ons.butterfly_cellforms_black_gpu)
+		                               ? ons.butterfly_cellforms_black_gpu
+		                               : ons.butterfly_cellforms_gpu;
+		int bflyFw = ons.butterflyParams.useBlackCellforms && ons.butterfly_cellforms_black_gpu
+		                 ? ons.butterfly_black_frame_w : ons.butterfly_frame_w;
+		int bflyFh = ons.butterflyParams.useBlackCellforms && ons.butterfly_cellforms_black_gpu
+		                 ? ons.butterfly_black_frame_h : ons.butterfly_frame_h;
+		if (bflyCellforms) {
 			uint32_t ticks = SDL_GetTicks();
-			float fw       = static_cast<float>(ons.butterfly_frame_w);
-			float fh       = static_cast<float>(ons.butterfly_frame_h);
+			float fw       = static_cast<float>(bflyFw);
+			float fh       = static_cast<float>(bflyFh);
 			float cf       = static_cast<float>(data.cellFactor);
 
 			// Detect compose vs decompose by comparing with previous factor
@@ -1120,7 +1127,7 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			addBlend.color_equation = GPU_EQ_ADD;
 			addBlend.alpha_equation = GPU_EQ_ADD;
 
-			GPU_BlendMode origBflyBlend = ons.butterfly_cellforms_gpu->blend_mode;
+			GPU_BlendMode origBflyBlend = bflyCellforms->blend_mode;
 
 			const float bflyScale    = ons.butterflyParams.bflyScale;
 			const float bflyMinScale = ons.butterflyParams.bflyMinScale;
@@ -1160,18 +1167,18 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 				// Pass 1: Normal draw with golden shimmer
 				float glitter1 = 0.9f + 0.2f * std::sin(ticks * 0.012f + n * 2.1f);
 				uint8_t bright = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter1 * 1.3f));
-				GPU_SetRGBA(ons.butterfly_cellforms_gpu, bright, bright, bright, alpha);
-				copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
+				GPU_SetRGBA(bflyCellforms, bright, bright, bright, alpha);
+				copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
 				             destX, destY, scale, scale, angle, true);
 
 				// Pass 2: Additive glow
-				ons.butterfly_cellforms_gpu->blend_mode = addBlend;
+				bflyCellforms->blend_mode = addBlend;
 				float glowSc    = ons.butterflyParams.glowScale;
 				float glowInt   = ons.butterflyParams.glowIntensity;
 				float glitter2  = 0.6f + 0.4f * std::sin(ticks * 0.018f + n * 3.7f);
 				uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter2 * glowInt));
-				GPU_SetRGBA(ons.butterfly_cellforms_gpu, glowVal, glowVal, glowVal, glowVal);
-				copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
+				GPU_SetRGBA(bflyCellforms, glowVal, glowVal, glowVal, glowVal);
+				copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
 				             destX, destY, scale * glowSc, scale * glowSc, angle, true);
 
 				// Pass 3: Wider additive halo
@@ -1179,13 +1186,13 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 				float haloInt   = ons.butterflyParams.haloIntensity;
 				float glitter3  = 0.5f + 0.5f * std::sin(ticks * 0.009f + n * 1.3f);
 				uint8_t haloVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * alphaF * glitter3 * haloInt));
-				GPU_SetRGBA(ons.butterfly_cellforms_gpu, haloVal, haloVal, haloVal, haloVal);
-				copyGPUImage(ons.butterfly_cellforms_gpu, &bflyRect, nullptr, target,
+				GPU_SetRGBA(bflyCellforms, haloVal, haloVal, haloVal, haloVal);
+				copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
 				             destX, destY, scale * haloSc, scale * haloSc, angle, true);
 
-				ons.butterfly_cellforms_gpu->blend_mode = origBflyBlend;
+				bflyCellforms->blend_mode = origBflyBlend;
 			}
-			GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
+			GPU_SetRGBA(bflyCellforms, 255, 255, 255, 255);
 
 			// ---- GOLDEN FRONTIER MAGIC ----
 			// Dense cloud of large golden glow particles along the diagonal
@@ -1194,8 +1201,8 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			// We extend a few diagonals past the breaking edge into the unbroken
 			// region so that the glow covers the seam between the triangle and
 			// the butterfly zone, preventing a visible diagonal line.
-			if (ons.butterfly_cellforms_gpu) {
-				ons.butterfly_cellforms_gpu->blend_mode = addBlend;
+			if (bflyCellforms) {
+				bflyCellforms->blend_mode = addBlend;
 
 				// Wide frontier zone to create a broad magical band
 				const float frontierLo = ons.butterflyParams.frontierLo;
@@ -1252,7 +1259,7 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 
 						uint8_t pVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * intensity));
 						if (pVal < 5) continue;
-						GPU_SetRGBA(ons.butterfly_cellforms_gpu, pVal, pVal, pVal, pVal);
+						GPU_SetRGBA(bflyCellforms, pVal, pVal, pVal, pVal);
 
 						// Large glowing particles — animated butterfly frames spinning slowly
 						int pFrame = static_cast<int>((ticks / 50 + n + p) % 4);
@@ -1260,13 +1267,13 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 						float pAngle = ticks * 0.05f + n * 37.0f + p * 72.0f;
 						// Particle size based on index
 						float pScale = ons.butterflyParams.particleScaleMin + p * ons.butterflyParams.particleScaleStep;
-						copyGPUImage(ons.butterfly_cellforms_gpu, &particleRect, nullptr, target,
+						copyGPUImage(bflyCellforms, &particleRect, nullptr, target,
 						             px, py, pScale, pScale, pAngle, true);
 					}
 				}
 
-				ons.butterfly_cellforms_gpu->blend_mode = origBflyBlend;
-				GPU_SetRGBA(ons.butterfly_cellforms_gpu, 255, 255, 255, 255);
+				bflyCellforms->blend_mode = origBflyBlend;
+				GPU_SetRGBA(bflyCellforms, 255, 255, 255, 255);
 			}
 		}
 	} else {
