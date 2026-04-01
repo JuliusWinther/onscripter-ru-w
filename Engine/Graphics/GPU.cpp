@@ -1242,54 +1242,70 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			GPU_SetRGBA(bflyCellforms, 255, 255, 255, 255);
 
 			// ---- FADE BAND BUTTERFLY CROSS-FADE ----
-			// Draw butterflies in the fade band zone (intact cells where sprite
-			// is fading out). Alpha increases toward the frontier (inverse of sprite alpha).
+			// Draw multiple scattered butterflies per cell in the fade band zone
+			// to create a dense cloud that smoothly connects sprite edge to butterfly field.
 			if (fadeBand > 0 && data.fadeBandDiagEnd > data.fadeBandDiagStart) {
 				BreakupCell **diags = data.diagonals.data();
 				int maxDiagIdx = data.numCellsX + data.numCellsY - 2;
 
 				for (int d = data.fadeBandDiagStart; d <= data.fadeBandDiagEnd; ++d) {
-					// Inverse of sprite alpha: 1 at fadeDiagStart (near butterflies), 0 at fadeDiagEnd (near triangle)
+					// t: 1 at fadeDiagStart (near butterflies), 0 at fadeDiagEnd (near triangle)
 					float t = 1.0f - static_cast<float>(d - data.fadeBandDiagStart) / static_cast<float>(fadeBand);
 
 					BreakupCell *diagBegin = diags[d];
 					BreakupCell *diagEndPtr = (d + 1 <= maxDiagIdx) ? diags[d + 1] : (data.breakup_cells.data() + data.numCellsX * data.numCellsY);
 
+					// More butterflies per cell near the frontier, fewer near the triangle
+					int bflysPerCell = std::max(1, static_cast<int>(3.0f * t + 0.5f));
+
 					for (BreakupCell *cell = diagBegin; cell < diagEndPtr; ++cell) {
 						if (hasCellContent && !data.cellHasContent[cell->cell_y * data.numCellsX + cell->cell_x])
 							continue;
 
-						float destX = cell->cell_x * cf + dstX;
-						float destY = cell->cell_y * cf + dstY;
+						int cellIdx = cell->cell_y * data.numCellsX + cell->cell_x;
+						float basePosX = cell->cell_x * cf + dstX;
+						float basePosY = cell->cell_y * cf + dstY;
 
-						float scale = bflyMinScale * bflyScale;
+						for (int b = 0; b < bflysPerCell; ++b) {
+							// Scatter each butterfly around the cell center
+							float seed1 = std::sin(cellIdx * 5.17f + b * 3.31f + ticks * 0.003f);
+							float seed2 = std::cos(cellIdx * 7.23f + b * 2.77f + ticks * 0.004f);
+							float scatter = cf * 0.8f * t; // more scatter near frontier
+							float destX = basePosX + seed1 * scatter;
+							float destY = basePosY + seed2 * scatter;
 
-						int animFrame = static_cast<int>((ticks / 55 + cell->cell_y * data.numCellsX + cell->cell_x) % 4);
-						GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
+							// Scale ramps from bflyMinScale (near triangle) to full (near frontier)
+							float scale = (bflyMinScale + (1.0f - bflyMinScale) * t) * bflyScale;
 
-						float angle = composing ? 315.0f : 135.0f;
+							int animFrame = static_cast<int>((ticks / 55 + cellIdx + b * 7) % 4);
+							GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
 
-						uint8_t alpha = static_cast<uint8_t>(255.0f * t);
-						if (alpha < 2) continue;
+							// Varied angle per butterfly instance
+							float angle = composing ? 315.0f : 135.0f;
+							angle += seed1 * 25.0f; // slight angle variation
 
-						// Pass 1: Normal butterfly
-						float glitter1 = 0.9f + 0.2f * std::sin(ticks * 0.012f + d * 2.1f + cell->cell_x * 0.7f);
-						uint8_t bright = static_cast<uint8_t>(std::min(255.0f, 255.0f * t * glitter1 * 1.3f));
-						GPU_SetRGBA(bflyCellforms, bright, bright, bright, alpha);
-						copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
-						             destX, destY, scale, scale, angle, true);
+							uint8_t alpha = static_cast<uint8_t>(255.0f * t);
+							if (alpha < 2) continue;
 
-						// Pass 2: Additive glow (attenuated by fade)
-						bflyCellforms->blend_mode = addBlend;
-						float glowSc  = ons.butterflyParams.glowScale;
-						float glowInt = ons.butterflyParams.glowIntensity;
-						float glitter2 = 0.6f + 0.4f * std::sin(ticks * 0.018f + d * 3.7f + cell->cell_x * 1.3f);
-						uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * t * glitter2 * glowInt));
-						GPU_SetRGBA(bflyCellforms, glowVal, glowVal, glowVal, glowVal);
-						copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
-						             destX, destY, scale * glowSc, scale * glowSc, angle, true);
+							// Pass 1: Normal butterfly
+							float glitter1 = 0.9f + 0.2f * std::sin(ticks * 0.012f + cellIdx * 2.1f + b * 1.7f);
+							uint8_t bright = static_cast<uint8_t>(std::min(255.0f, 255.0f * t * glitter1 * 1.3f));
+							GPU_SetRGBA(bflyCellforms, bright, bright, bright, alpha);
+							copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
+							             destX, destY, scale, scale, angle, true);
 
-						bflyCellforms->blend_mode = origBflyBlend;
+							// Pass 2: Additive glow (attenuated by fade)
+							bflyCellforms->blend_mode = addBlend;
+							float glowSc  = ons.butterflyParams.glowScale;
+							float glowInt = ons.butterflyParams.glowIntensity;
+							float glitter2 = 0.6f + 0.4f * std::sin(ticks * 0.018f + cellIdx * 3.7f + b * 2.3f);
+							uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * t * glitter2 * glowInt));
+							GPU_SetRGBA(bflyCellforms, glowVal, glowVal, glowVal, glowVal);
+							copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
+							             destX, destY, scale * glowSc, scale * glowSc, angle, true);
+
+							bflyCellforms->blend_mode = origBflyBlend;
+						}
 					}
 				}
 				GPU_SetRGBA(bflyCellforms, 255, 255, 255, 255);
