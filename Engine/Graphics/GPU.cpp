@@ -1101,7 +1101,7 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			unsetShaderProgram();
 
 		// Draw fade band: individual cells between the shrunk triangle edge
-		// and the butterfly zone, with alpha decreasing toward the frontier.
+		// and the butterfly zone. Sprite fades out, butterflies fade in (cross-fade).
 		if (fadeBand > 0) {
 			float cf = static_cast<float>(data.cellFactor);
 			int maxDiagIndex = data.numCellsX + data.numCellsY - 2;
@@ -1110,6 +1110,10 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 
 			BreakupCell **diagonals = data.diagonals.data();
 			bool hasCellContent = !data.cellHasContent.empty();
+
+			// Store fade band range for butterfly cross-fade pass later
+			data.fadeBandDiagStart = fadeDiagStart;
+			data.fadeBandDiagEnd   = fadeDiagEnd;
 
 			for (int d = fadeDiagStart; d <= fadeDiagEnd; ++d) {
 				// Alpha: 0 at fadeDiagStart (touching butterflies), 1 at fadeDiagEnd (touching triangle)
@@ -1133,6 +1137,9 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 				}
 			}
 			GPU_SetRGBA(src, 255, 255, 255, 255);
+		} else {
+			data.fadeBandDiagStart = 0;
+			data.fadeBandDiagEnd   = 0;
 		}
 
 		// Render animated butterfly sprites in place of circles.
@@ -1233,6 +1240,60 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 				bflyCellforms->blend_mode = origBflyBlend;
 			}
 			GPU_SetRGBA(bflyCellforms, 255, 255, 255, 255);
+
+			// ---- FADE BAND BUTTERFLY CROSS-FADE ----
+			// Draw butterflies in the fade band zone (intact cells where sprite
+			// is fading out). Alpha increases toward the frontier (inverse of sprite alpha).
+			if (fadeBand > 0 && data.fadeBandDiagEnd > data.fadeBandDiagStart) {
+				BreakupCell **diags = data.diagonals.data();
+				int maxDiagIdx = data.numCellsX + data.numCellsY - 2;
+
+				for (int d = data.fadeBandDiagStart; d <= data.fadeBandDiagEnd; ++d) {
+					// Inverse of sprite alpha: 1 at fadeDiagStart (near butterflies), 0 at fadeDiagEnd (near triangle)
+					float t = 1.0f - static_cast<float>(d - data.fadeBandDiagStart) / static_cast<float>(fadeBand);
+
+					BreakupCell *diagBegin = diags[d];
+					BreakupCell *diagEndPtr = (d + 1 <= maxDiagIdx) ? diags[d + 1] : (data.breakup_cells.data() + data.numCellsX * data.numCellsY);
+
+					for (BreakupCell *cell = diagBegin; cell < diagEndPtr; ++cell) {
+						if (hasCellContent && !data.cellHasContent[cell->cell_y * data.numCellsX + cell->cell_x])
+							continue;
+
+						float destX = cell->cell_x * cf + dstX;
+						float destY = cell->cell_y * cf + dstY;
+
+						float scale = bflyMinScale * bflyScale;
+
+						int animFrame = static_cast<int>((ticks / 55 + cell->cell_y * data.numCellsX + cell->cell_x) % 4);
+						GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
+
+						float angle = composing ? 315.0f : 135.0f;
+
+						uint8_t alpha = static_cast<uint8_t>(255.0f * t);
+						if (alpha < 2) continue;
+
+						// Pass 1: Normal butterfly
+						float glitter1 = 0.9f + 0.2f * std::sin(ticks * 0.012f + d * 2.1f + cell->cell_x * 0.7f);
+						uint8_t bright = static_cast<uint8_t>(std::min(255.0f, 255.0f * t * glitter1 * 1.3f));
+						GPU_SetRGBA(bflyCellforms, bright, bright, bright, alpha);
+						copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
+						             destX, destY, scale, scale, angle, true);
+
+						// Pass 2: Additive glow (attenuated by fade)
+						bflyCellforms->blend_mode = addBlend;
+						float glowSc  = ons.butterflyParams.glowScale;
+						float glowInt = ons.butterflyParams.glowIntensity;
+						float glitter2 = 0.6f + 0.4f * std::sin(ticks * 0.018f + d * 3.7f + cell->cell_x * 1.3f);
+						uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * t * glitter2 * glowInt));
+						GPU_SetRGBA(bflyCellforms, glowVal, glowVal, glowVal, glowVal);
+						copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
+						             destX, destY, scale * glowSc, scale * glowSc, angle, true);
+
+						bflyCellforms->blend_mode = origBflyBlend;
+					}
+				}
+				GPU_SetRGBA(bflyCellforms, 255, 255, 255, 255);
+			}
 
 			// ---- GOLDEN FRONTIER MAGIC ----
 			// Dense cloud of large golden glow particles along the diagonal

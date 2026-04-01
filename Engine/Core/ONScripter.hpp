@@ -1297,6 +1297,8 @@ private:
 		std::vector<bool> cellHasContent;    // Only used by butterfly breakup
 		int prevBreakupFactor{-1};           // Only used by butterfly breakup
 		GPU_Image *goldMaskGpu{nullptr};     // Only used by butterfly breakup — solid gold silhouette texture
+		int fadeBandDiagStart{0};            // Only used by butterfly breakup — fade band range
+		int fadeBandDiagEnd{0};              // Only used by butterfly breakup — fade band range
 	};
 
 	std::unordered_map<BreakupID, BreakupData> breakupData;
