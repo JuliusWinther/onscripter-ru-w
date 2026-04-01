@@ -1252,12 +1252,12 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			}
 			GPU_SetRGBA(bflyCellforms, 255, 255, 255, 255);
 
-			// ---- FADE BAND CROSS-FADE ----
-			// Mode 0: butterflies, Mode 1: golden dust particles
+			// ---- FADE BAND BUTTERFLY CROSS-FADE ----
+			// Draw multiple scattered butterflies per cell in the fade band zone
+			// to create a dense cloud that smoothly connects sprite edge to butterfly field.
 			if (fadeBand > 0 && data.fadeBandDiagEnd > data.fadeBandDiagStart) {
 				BreakupCell **diags = data.diagonals.data();
 				int maxDiagIdx = data.numCellsX + data.numCellsY - 2;
-				bool dustMode = ons.butterflyParams.frontierDustMode != 0;
 
 				for (int d = data.fadeBandDiagStart; d <= data.fadeBandDiagEnd; ++d) {
 					// t: 1 at fadeDiagStart (near butterflies), 0 at fadeDiagEnd (near triangle)
@@ -1274,72 +1274,41 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 						float basePosX = cell->cell_x * cf + dstX;
 						float basePosY = cell->cell_y * cf + dstY;
 
-						if (dustMode) {
-							// DUST MODE: dense cloud of tiny golden particles
+						int bflysPerCell = std::max(1, static_cast<int>(3.0f * t + 0.5f));
+						for (int b = 0; b < bflysPerCell; ++b) {
+							float seed1 = std::sin(cellIdx * 5.17f + b * 3.31f + ticks * 0.003f);
+							float seed2 = std::cos(cellIdx * 7.23f + b * 2.77f + ticks * 0.004f);
+							float scatter = cf * 0.8f * t;
+							float destX = basePosX + seed1 * scatter;
+							float destY = basePosY + seed2 * scatter;
+
+							float scale = (bflyMinScale + (1.0f - bflyMinScale) * t) * bflyScale;
+
+							int animFrame = static_cast<int>((ticks / 55 + cellIdx + b * 7) % 4);
+							GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
+
+							float angle = composing ? 315.0f : 135.0f;
+							angle += seed1 * 25.0f;
+
+							uint8_t alpha = static_cast<uint8_t>(255.0f * t);
+							if (alpha < 2) continue;
+
+							float glitter1 = 0.9f + 0.2f * std::sin(ticks * 0.012f + cellIdx * 2.1f + b * 1.7f);
+							uint8_t bright = static_cast<uint8_t>(std::min(255.0f, 255.0f * t * glitter1 * 1.3f));
+							GPU_SetRGBA(bflyCellforms, bright, bright, bright, alpha);
+							copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
+							             destX, destY, scale, scale, angle, true);
+
 							bflyCellforms->blend_mode = addBlend;
-							int dustPerCell = std::max(2, static_cast<int>(8.0f * t + 0.5f));
-							for (int p = 0; p < dustPerCell; ++p) {
-								float s1 = std::sin(cellIdx * 5.17f + p * 3.31f + ticks * 0.006f);
-								float s2 = std::cos(cellIdx * 7.23f + p * 2.77f + ticks * 0.007f);
-								float s3 = std::sin(cellIdx * 11.3f + p * 4.53f + ticks * 0.011f);
+							float glowSc  = ons.butterflyParams.glowScale;
+							float glowInt = ons.butterflyParams.glowIntensity;
+							float glitter2 = 0.6f + 0.4f * std::sin(ticks * 0.018f + cellIdx * 3.7f + b * 2.3f);
+							uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * t * glitter2 * glowInt));
+							GPU_SetRGBA(bflyCellforms, glowVal, glowVal, glowVal, glowVal);
+							copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
+							             destX, destY, scale * glowSc, scale * glowSc, angle, true);
 
-								float scatter = cf * 1.2f * t;
-								float px = basePosX + s1 * scatter;
-								float py = basePosY + s2 * scatter;
-
-								float sparkle = 0.6f + 0.4f * (0.5f + 0.5f * s3);
-								float intensity = sparkle * t;
-								uint8_t pVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * intensity));
-								if (pVal < 3) continue;
-								GPU_SetRGBA(bflyCellforms, pVal, pVal, pVal, pVal);
-
-								int pFrame = static_cast<int>((ticks / 40 + cellIdx + p * 3) % 4);
-								GPU_Rect dustRect{static_cast<float>(pFrame) * fw, 0, fw, fh};
-								float pAngle = ticks * 0.08f + cellIdx * 31.0f + p * 97.0f;
-								// Tiny scale = dust specks
-								float pScale = 0.08f + 0.12f * (0.5f + 0.5f * s1);
-								copyGPUImage(bflyCellforms, &dustRect, nullptr, target,
-								             px, py, pScale, pScale, pAngle, true);
-							}
 							bflyCellforms->blend_mode = origBflyBlend;
-						} else {
-							// BUTTERFLY MODE: scattered butterflies cross-fade
-							int bflysPerCell = std::max(1, static_cast<int>(3.0f * t + 0.5f));
-							for (int b = 0; b < bflysPerCell; ++b) {
-								float seed1 = std::sin(cellIdx * 5.17f + b * 3.31f + ticks * 0.003f);
-								float seed2 = std::cos(cellIdx * 7.23f + b * 2.77f + ticks * 0.004f);
-								float scatter = cf * 0.8f * t;
-								float destX = basePosX + seed1 * scatter;
-								float destY = basePosY + seed2 * scatter;
-
-								float scale = (bflyMinScale + (1.0f - bflyMinScale) * t) * bflyScale;
-
-								int animFrame = static_cast<int>((ticks / 55 + cellIdx + b * 7) % 4);
-								GPU_Rect bflyRect{static_cast<float>(animFrame) * fw, 0, fw, fh};
-
-								float angle = composing ? 315.0f : 135.0f;
-								angle += seed1 * 25.0f;
-
-								uint8_t alpha = static_cast<uint8_t>(255.0f * t);
-								if (alpha < 2) continue;
-
-								float glitter1 = 0.9f + 0.2f * std::sin(ticks * 0.012f + cellIdx * 2.1f + b * 1.7f);
-								uint8_t bright = static_cast<uint8_t>(std::min(255.0f, 255.0f * t * glitter1 * 1.3f));
-								GPU_SetRGBA(bflyCellforms, bright, bright, bright, alpha);
-								copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
-								             destX, destY, scale, scale, angle, true);
-
-								bflyCellforms->blend_mode = addBlend;
-								float glowSc  = ons.butterflyParams.glowScale;
-								float glowInt = ons.butterflyParams.glowIntensity;
-								float glitter2 = 0.6f + 0.4f * std::sin(ticks * 0.018f + cellIdx * 3.7f + b * 2.3f);
-								uint8_t glowVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * t * glitter2 * glowInt));
-								GPU_SetRGBA(bflyCellforms, glowVal, glowVal, glowVal, glowVal);
-								copyGPUImage(bflyCellforms, &bflyRect, nullptr, target,
-								             destX, destY, scale * glowSc, scale * glowSc, angle, true);
-
-								bflyCellforms->blend_mode = origBflyBlend;
-							}
 						}
 					}
 				}
@@ -1347,11 +1316,10 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 			}
 
 			// ---- GOLDEN FRONTIER MAGIC ----
-			// Mode 0: large spinning butterfly sprites as golden orbs
-			// Mode 1: dense golden dust cloud — tiny particles, many per cell
+			// Dense cloud of large golden glow particles along the diagonal
+			// frontier where butterflies meet the forming/dissolving sprite.
 			if (bflyCellforms) {
 				bflyCellforms->blend_mode = addBlend;
-				bool dustMode = ons.butterflyParams.frontierDustMode != 0;
 
 				const float frontierLo = ons.butterflyParams.frontierLo;
 				const float frontierHi = ons.butterflyParams.frontierHi;
@@ -1386,117 +1354,27 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 					float originY = cell.cell_y * cf + cell.disp_y * dispFollow + dstY;
 
 					int frontierParts = ons.butterflyParams.frontierParticles;
+					for (int p = 0; p < frontierParts; ++p) {
+						float seed1 = std::sin(n * 7.13f + p * 3.71f + ticks * 0.004f);
+						float seed2 = std::cos(n * 5.37f + p * 2.93f + ticks * 0.005f);
+						float seed3 = std::sin(n * 11.1f + p * 4.17f + ticks * 0.009f);
 
-					if (dustMode) {
-						// DUST MODE: many tiny golden dust specks
-						int dustCount = frontierParts * 3;
-						for (int p = 0; p < dustCount; ++p) {
-							float s1 = std::sin(n * 7.13f + p * 2.17f + ticks * 0.005f);
-							float s2 = std::cos(n * 5.37f + p * 1.83f + ticks * 0.006f);
-							float s3 = std::sin(n * 11.1f + p * 3.41f + ticks * 0.013f);
+						float scatter = ons.butterflyParams.frontierScatter;
+						float px = originX + seed1 * cf * scatter;
+						float py = originY + seed2 * cf * scatter;
 
-							float scatter = ons.butterflyParams.frontierScatter;
-							float px = originX + s1 * cf * scatter;
-							float py = originY + s2 * cf * scatter;
-
-							float sparkle = 0.5f + 0.5f * (0.5f + 0.5f * s3);
-							float intensity = sparkle * bellT;
-
-							uint8_t pVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * intensity));
-							if (pVal < 3) continue;
-							GPU_SetRGBA(bflyCellforms, pVal, pVal, pVal, pVal);
-
-							int pFrame = static_cast<int>((ticks / 35 + n + p * 3) % 4);
-							GPU_Rect dustRect{static_cast<float>(pFrame) * fw, 0, fw, fh};
-							float pAngle = ticks * 0.1f + n * 43.0f + p * 67.0f;
-							// Tiny dust: 0.06 to 0.18 scale
-							float pScale = 0.06f + 0.12f * (0.5f + 0.5f * s1);
-							copyGPUImage(bflyCellforms, &dustRect, nullptr, target,
-							             px, py, pScale, pScale, pAngle, true);
-						}
-					} else {
-						// BUTTERFLY MODE: large spinning butterfly orbs (original behavior)
-						for (int p = 0; p < frontierParts; ++p) {
-							float seed1 = std::sin(n * 7.13f + p * 3.71f + ticks * 0.004f);
-							float seed2 = std::cos(n * 5.37f + p * 2.93f + ticks * 0.005f);
-							float seed3 = std::sin(n * 11.1f + p * 4.17f + ticks * 0.009f);
-
-							float scatter = ons.butterflyParams.frontierScatter;
-							float px = originX + seed1 * cf * scatter;
-							float py = originY + seed2 * cf * scatter;
-
-							float sparkle = 0.5f + 0.5f * (0.5f + 0.5f * seed3);
-							float intensity = sparkle * bellT;
-
-							uint8_t pVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * intensity));
-							if (pVal < 5) continue;
-							GPU_SetRGBA(bflyCellforms, pVal, pVal, pVal, pVal);
-
-							int pFrame = static_cast<int>((ticks / 50 + n + p) % 4);
-							GPU_Rect particleRect{static_cast<float>(pFrame) * fw, 0, fw, fh};
-							float pAngle = ticks * 0.05f + n * 37.0f + p * 72.0f;
-							float pScale = ons.butterflyParams.particleScaleMin + p * ons.butterflyParams.particleScaleStep;
-							copyGPUImage(bflyCellforms, &particleRect, nullptr, target,
-							             px, py, pScale, pScale, pAngle, true);
-						}
-					}
-				}
-
-				bflyCellforms->blend_mode = origBflyBlend;
-				GPU_SetRGBA(bflyCellforms, 255, 255, 255, 255);
-			}
-
-			// ---- BUTTERFLY DISSOLUTION INTO DUST (dust mode only) ----
-			// Butterflies near the frontier (high resizeFactor) emit dust particles
-			// as they approach the sprite edge, simulating them crumbling into golden dust.
-			if (ons.butterflyParams.frontierDustMode != 0 && bflyCellforms) {
-				bflyCellforms->blend_mode = addBlend;
-				const float frontierLo = ons.butterflyParams.frontierLo;
-				const float dustThreshold = 0.5f; // butterflies with resizeFactor above this start emitting dust
-
-				for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
-					auto &cell = myCells[n];
-					if (cell.diagonal > data.maxDiagonalToContainBrokenCells)
-						break;
-					if (hasCellContent && !data.cellHasContent[cell.cell_y * data.numCellsX + cell.cell_x])
-						continue;
-					if (cell.resizeFactor <= 0 || cell.resizeFactor >= 1.0f)
-						continue;
-					if (cell.resizeFactor < dustThreshold)
-						continue;
-
-					// How close to the frontier: 0 at dustThreshold, 1 at frontierLo
-					float proximity = (cell.resizeFactor - dustThreshold) / (1.0f - dustThreshold);
-
-					float bflyX = cell.cell_x * cf + cell.disp_x + dstX;
-					float bflyY = cell.cell_y * cf + cell.disp_y + dstY;
-
-					// More dust the closer to the frontier
-					int dustCount = static_cast<int>(6.0f * proximity + 1.5f);
-					for (int p = 0; p < dustCount; ++p) {
-						float s1 = std::sin(n * 9.17f + p * 4.31f + ticks * 0.007f);
-						float s2 = std::cos(n * 6.73f + p * 3.19f + ticks * 0.008f);
-						float s3 = std::sin(n * 13.3f + p * 5.71f + ticks * 0.015f);
-
-						// Dust drifts from butterfly toward the frontier (back toward sprite)
-						float driftX = -cell.disp_x * proximity * 0.4f;
-						float driftY = -cell.disp_y * proximity * 0.4f;
-						float scatter = cf * 0.6f;
-						float px = bflyX + driftX + s1 * scatter;
-						float py = bflyY + driftY + s2 * scatter;
-
-						float sparkle = 0.6f + 0.4f * (0.5f + 0.5f * s3);
-						float intensity = sparkle * proximity * 0.8f;
+						float sparkle = 0.5f + 0.5f * (0.5f + 0.5f * seed3);
+						float intensity = sparkle * bellT;
 
 						uint8_t pVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * intensity));
-						if (pVal < 3) continue;
+						if (pVal < 5) continue;
 						GPU_SetRGBA(bflyCellforms, pVal, pVal, pVal, pVal);
 
-						int pFrame = static_cast<int>((ticks / 35 + n + p * 5) % 4);
-						GPU_Rect dustRect{static_cast<float>(pFrame) * fw, 0, fw, fh};
-						float pAngle = ticks * 0.12f + n * 51.0f + p * 83.0f;
-						float pScale = 0.06f + 0.14f * (0.5f + 0.5f * s2);
-						copyGPUImage(bflyCellforms, &dustRect, nullptr, target,
+						int pFrame = static_cast<int>((ticks / 50 + n + p) % 4);
+						GPU_Rect particleRect{static_cast<float>(pFrame) * fw, 0, fw, fh};
+						float pAngle = ticks * 0.05f + n * 37.0f + p * 72.0f;
+						float pScale = ons.butterflyParams.particleScaleMin + p * ons.butterflyParams.particleScaleStep;
+						copyGPUImage(bflyCellforms, &particleRect, nullptr, target,
 						             px, py, pScale, pScale, pAngle, true);
 					}
 				}

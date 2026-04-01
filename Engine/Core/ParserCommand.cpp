@@ -324,7 +324,7 @@ int ScriptParser::butterflysetCommand() {
 	//           <haloScale> <haloIntensity> <frontierParticles> <frontierLo>
 	//           <frontierHi> <frontierScatter> <particleScaleMin> <particleScaleStep>
 	//           <useBlackCellforms> <frontierDispFollow> <frontierOverlap> <frontierFadeBand>
-	//           <frontierDustMode> <proceduralButterflies>
+	//           <proceduralButterflies>
 	auto &bp       = butterflyParams;
 	bp.bflyScale   = script_h.readInt() / 100.0f;
 	bp.bflyMinScale = script_h.readInt() / 100.0f;
@@ -343,18 +343,16 @@ int ScriptParser::butterflysetCommand() {
 	if (script_h.hasMoreArgs()) bp.frontierDispFollow = script_h.readInt() / 100.0f;
 	if (script_h.hasMoreArgs()) bp.frontierOverlap    = script_h.readInt();
 	if (script_h.hasMoreArgs()) bp.frontierFadeBand   = script_h.readInt();
-	if (script_h.hasMoreArgs()) bp.frontierDustMode   = script_h.readInt();
 	if (script_h.hasMoreArgs()) bp.proceduralButterflies = script_h.readInt();
 
 	sendToLog(LogLevel::Info, "butterflyset: bflyScale=%.2f bflyMinScale=%.2f glowScale=%.2f glowInt=%.2f "
 	          "haloScale=%.2f haloInt=%.2f frontierPart=%d frontierLo=%.2f frontierHi=%.2f "
 	          "frontierScatter=%.2f pScaleMin=%.2f pScaleStep=%.2f useBlack=%d "
-	          "frontierDispFollow=%.2f frontierOverlap=%d frontierFadeBand=%d frontierDustMode=%d "
-	          "proceduralBfly=%d\n",
+	          "frontierDispFollow=%.2f frontierOverlap=%d frontierFadeBand=%d proceduralBfly=%d\n",
 	          bp.bflyScale, bp.bflyMinScale, bp.glowScale, bp.glowIntensity,
 	          bp.haloScale, bp.haloIntensity, bp.frontierParticles, bp.frontierLo, bp.frontierHi,
 	          bp.frontierScatter, bp.particleScaleMin, bp.particleScaleStep, bp.useBlackCellforms,
-	          bp.frontierDispFollow, bp.frontierOverlap, bp.frontierFadeBand, bp.frontierDustMode,
+	          bp.frontierDispFollow, bp.frontierOverlap, bp.frontierFadeBand,
 	          bp.proceduralButterflies);
 
 	return RET_CONTINUE;
