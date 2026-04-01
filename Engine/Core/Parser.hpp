@@ -291,6 +291,7 @@ protected:
 		int   frontierOverlap{3};
 		int   frontierFadeBand{0};
 		int   frontierDustMode{0};
+		int   proceduralButterflies{0};
 	};
 	ButterflyBreakupParams butterflyParams;
 

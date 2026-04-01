@@ -127,6 +127,178 @@ void ONScripter::buildButterflyCellforms() {
 	}
 }
 
+void ONScripter::buildProceduralButterflies() {
+	if (butterfly_procedural_gpu || butterfly_procedural_built)
+		return;
+	butterfly_procedural_built = true;
+
+	// Generate a 4-frame butterfly spritesheet procedurally.
+	// Each frame shows a golden butterfly with wings at a different angle
+	// to create a flapping animation cycle.
+	// Frame layout: [wings up | wings mid-up | wings flat | wings mid-down]
+	constexpr int frameW = 64;
+	constexpr int frameH = 64;
+	constexpr int numFrames = 4;
+	constexpr int totalW = frameW * numFrames;
+	constexpr float cx = frameW / 2.0f;
+	constexpr float cy = frameH / 2.0f;
+
+	// Wing flap angles (vertical spread): higher = more open
+	// The cycle: up(70°) → mid(45°) → flat(15°) → mid(45°) back
+	const float wingAngles[4] = {70.0f, 45.0f, 15.0f, 45.0f};
+
+	SDL_Surface *surf = SDL_CreateRGBSurface(0, totalW, frameH, 32,
+	                                          0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
+	if (!surf) {
+		sendToLog(LogLevel::Error, "Failed to create procedural butterfly surface\n");
+		return;
+	}
+
+	// Clear to transparent
+	SDL_FillRect(surf, nullptr, 0);
+
+	for (int frame = 0; frame < numFrames; ++frame) {
+		int offsetX = frame * frameW;
+		float wingAngleRad = wingAngles[frame] * static_cast<float>(M_PI) / 180.0f;
+
+		// Wing vertical compression based on flap angle
+		// When wings are "up" (70°), they spread wide vertically
+		// When "flat" (15°), they compress vertically
+		float wingSpreadY = std::sin(wingAngleRad);
+		float wingSpreadX = 1.0f; // horizontal spread stays constant
+
+		for (int py = 0; py < frameH; ++py) {
+			for (int px = 0; px < frameW; ++px) {
+				float x = (px - cx) / cx; // -1 to 1
+				float y = (py - cy) / cy; // -1 to 1
+
+				float alpha = 0.0f;
+
+				// === BODY ===
+				// Elongated vertical ellipse for the body
+				float bodyX = x / 0.12f;
+				float bodyY = y / 0.45f;
+				float bodyDist = bodyX * bodyX + bodyY * bodyY;
+				if (bodyDist < 1.0f) {
+					float bodyEdge = 1.0f - bodyDist;
+					alpha = std::min(1.0f, bodyEdge * 3.0f);
+				}
+
+				// === WINGS ===
+				// Each wing is an elliptical shape, vertically compressed by wingSpreadY
+				float absX = std::fabs(x);
+				if (absX > 0.08f) { // outside body
+					// Upper wings (larger)
+					float uwX = (absX - 0.35f) / 0.35f;
+					float uwY = (y - 0.05f) / (0.55f * wingSpreadY + 0.05f);
+					// Tilt the upper wings slightly outward and up
+					float uwRot = uwX * 0.3f;
+					float uwYr = uwY + uwRot;
+					float uwDist = uwX * uwX + uwYr * uwYr;
+					if (uwDist < 1.0f && y < 0.5f) {
+						float wingEdge = 1.0f - uwDist;
+						// Scalloped outer edge pattern
+						float edgeAngle = std::atan2(uwYr, uwX);
+						float scallop = 0.92f + 0.08f * std::sin(edgeAngle * 5.0f);
+						if (uwDist < scallop * scallop) {
+							float wingAlpha = std::min(1.0f, wingEdge * 2.5f);
+							alpha = std::max(alpha, wingAlpha);
+						}
+					}
+
+					// Lower wings (smaller, rounder)
+					float lwX = (absX - 0.28f) / 0.28f;
+					float lwY = (y + 0.15f) / (0.38f * wingSpreadY + 0.05f);
+					float lwDist = lwX * lwX + lwY * lwY;
+					if (lwDist < 1.0f && y > -0.35f) {
+						float wingEdge = 1.0f - lwDist;
+						float edgeAngle = std::atan2(lwY, lwX);
+						float scallop = 0.9f + 0.1f * std::sin(edgeAngle * 4.0f);
+						if (lwDist < scallop * scallop) {
+							float wingAlpha = std::min(1.0f, wingEdge * 2.5f);
+							alpha = std::max(alpha, wingAlpha);
+						}
+					}
+				}
+
+				if (alpha < 0.01f) continue;
+
+				// === COLORING ===
+				// Golden color with internal patterns
+				float absXn = std::fabs(x);
+				float distFromCenter = std::sqrt(x * x + y * y);
+
+				// Wing veins: darker lines radiating from body
+				float veinAngle = std::atan2(y, absXn);
+				float veinPattern = std::fabs(std::sin(veinAngle * 6.0f));
+				float veinMask = (absXn > 0.1f) ? std::max(0.0f, 1.0f - veinPattern * 0.3f * absXn * 2.0f) : 1.0f;
+
+				// Eye spots on upper wings
+				float eyeSpotX = absXn - 0.35f;
+				float eyeSpotY = y + 0.1f;
+				float eyeSpotDist = std::sqrt(eyeSpotX * eyeSpotX + eyeSpotY * eyeSpotY);
+				float eyeSpotDarken = (eyeSpotDist < 0.1f) ? 0.6f + 0.4f * (eyeSpotDist / 0.1f) : 1.0f;
+
+				// Gradient: brighter near body, amber at edges
+				float edgeFactor = std::min(1.0f, distFromCenter * 1.2f);
+
+				// Core gold: R=255, G=200, B=50 → Edge amber: R=220, G=150, B=20
+				float r = (255.0f - 35.0f * edgeFactor) * veinMask * eyeSpotDarken;
+				float g = (200.0f - 50.0f * edgeFactor) * veinMask * eyeSpotDarken;
+				float b = (50.0f - 30.0f * edgeFactor) * veinMask * eyeSpotDarken;
+
+				// Border darkening for wing edges
+				// (alpha is already soft at edges from the ellipse calculation)
+
+				uint8_t finalR = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, r)));
+				uint8_t finalG = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, g)));
+				uint8_t finalB = static_cast<uint8_t>(std::min(255.0f, std::max(0.0f, b)));
+				uint8_t finalA = static_cast<uint8_t>(std::min(255.0f, 255.0f * alpha));
+
+				auto *pixel = reinterpret_cast<uint32_t *>(
+				    static_cast<uint8_t *>(surf->pixels) + py * surf->pitch + (offsetX + px) * 4);
+				*pixel = (static_cast<uint32_t>(finalA) << 24) | (static_cast<uint32_t>(finalB) << 16) |
+				         (static_cast<uint32_t>(finalG) << 8) | finalR;
+			}
+		}
+
+		// === ANTENNAE ===
+		// Draw thin curved antennae at the top of each frame
+		for (int a = 0; a < 2; ++a) {
+			float sign = (a == 0) ? -1.0f : 1.0f;
+			for (float t = 0.0f; t <= 1.0f; t += 0.005f) {
+				// Curve from head top outward
+				float ax = sign * (t * 0.15f + t * t * 0.1f);
+				float ay = -0.4f - t * 0.25f + t * t * 0.08f;
+				int apx = static_cast<int>((ax + 1.0f) * cx) + offsetX;
+				int apy = static_cast<int>((ay + 1.0f) * cy);
+				if (apx >= offsetX && apx < offsetX + frameW && apy >= 0 && apy < frameH) {
+					// Gold antenna with slight thickness
+					for (int dy = -1; dy <= 0; ++dy) {
+						int finalPy = apy + dy;
+						if (finalPy < 0 || finalPy >= frameH) continue;
+						auto *pixel = reinterpret_cast<uint32_t *>(
+						    static_cast<uint8_t *>(surf->pixels) + finalPy * surf->pitch + apx * 4);
+						uint8_t aAlpha = (dy == 0) ? 255 : 128;
+						*pixel = (static_cast<uint32_t>(aAlpha) << 24) | (static_cast<uint32_t>(30) << 16) |
+						         (static_cast<uint32_t>(180) << 8) | 240;
+					}
+				}
+			}
+		}
+	}
+
+	butterfly_procedural_gpu = gpu.copyImageFromSurface(surf);
+	SDL_FreeSurface(surf);
+	gpu.multiplyAlpha(butterfly_procedural_gpu, nullptr);
+	butterfly_procedural_frame_w = frameW;
+	butterfly_procedural_frame_h = frameH;
+	GPU_SetImageFilter(butterfly_procedural_gpu, GPU_FILTER_LINEAR);
+	GPU_SetBlending(butterfly_procedural_gpu, true);
+	sendToLog(LogLevel::Info, "Generated procedural butterfly cellforms: %dx%d, frame size %dx%d\n",
+	          totalW, frameH, frameW, frameH);
+}
+
 bool ONScripter::breakupInitRequired(BreakupID id) {
 	return breakupData.count(id) == 0;
 }
