@@ -1209,7 +1209,7 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 				const float frontierHi = ons.butterflyParams.frontierHi;
 
 				// How many diagonals of intact cells past the frontier to cover
-				constexpr int frontierOverlap = 3;
+				int frontierOverlap = ons.butterflyParams.frontierOverlap;
 				int maxFrontierDiag = data.maxDiagonalToContainBrokenCells + frontierOverlap;
 
 				for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
@@ -1238,8 +1238,9 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 					}
 
 					// Cell position on the wipe line (at its current partial displacement)
-					float originX = cell.cell_x * cf + cell.disp_x * 0.3f + dstX;
-					float originY = cell.cell_y * cf + cell.disp_y * 0.3f + dstY;
+					float dispFollow = ons.butterflyParams.frontierDispFollow;
+					float originX = cell.cell_x * cf + cell.disp_x * dispFollow + dstX;
+					float originY = cell.cell_y * cf + cell.disp_y * dispFollow + dstY;
 
 					// Golden particles per frontier cell for a thick cloud
 					int frontierParts = ons.butterflyParams.frontierParticles;
