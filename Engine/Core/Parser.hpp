@@ -289,6 +289,7 @@ protected:
 		int   useBlackCellforms{0};
 		float frontierDispFollow{0.3f};
 		int   frontierOverlap{3};
+		int   frontierFadeBand{0};
 	};
 	ButterflyBreakupParams butterflyParams;
 

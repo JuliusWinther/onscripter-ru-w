@@ -574,7 +574,7 @@ public:
 	PooledGPUImage getBrokenUpImage(GPUTransformableCanvasImage &im, BreakupID id,
 	                                int breakupFactor, int breakupDirectionFlagset,
 	                                const char *params);
-	void drawUnbrokenBreakupRegions(BreakupID id, float dstX, float dstY);
+	void drawUnbrokenBreakupRegions(BreakupID id, float dstX, float dstY, int shrinkDiagonals = 0);
 
 	void butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect *src_rect, GPU_Target *target,
 	                           int breakupFactor, int breakupDirectionFlagset, const char *params,

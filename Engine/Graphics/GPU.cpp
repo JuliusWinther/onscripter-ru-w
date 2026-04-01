@@ -992,7 +992,7 @@ void GPUController::breakUpImage(BreakupID id, GPU_Image *src, GPU_Rect *src_rec
 	}
 }
 
-void GPUController::drawUnbrokenBreakupRegions(BreakupID id, float dstX, float dstY) {
+void GPUController::drawUnbrokenBreakupRegions(BreakupID id, float dstX, float dstY, int shrinkDiagonals) {
 	ONScripter::BreakupData &data = ons.breakupData[id];
 	BreakupCell *myCells          = data.breakup_cells.data();
 
@@ -1007,13 +1007,16 @@ void GPUController::drawUnbrokenBreakupRegions(BreakupID id, float dstX, float d
 	//BreakupCell &firstCell = myCells[0]; // first to disappear (last to appear)
 	BreakupCell &lastCell = myCells[numCellsX * numCellsY - 1]; // first to appear (last to disappear)
 
-	if (data.maxDiagonalToContainBrokenCells + 1 >= maxDiagonalIndex) {
+	// Shrink the triangle by a few diagonals to leave room for a fade band
+	int effectiveDiag = std::min(data.maxDiagonalToContainBrokenCells + shrinkDiagonals, maxDiagonalIndex - 1);
+
+	if (effectiveDiag + 1 >= maxDiagonalIndex) {
 		// Nothing is locked in place yet, or, only one cell is (can't make a triangle from that -- zero area)
 		return;
 	}
 
-	BreakupCell *firstOnDiagonal = diagonals[data.maxDiagonalToContainBrokenCells];
-	BreakupCell *lastOnDiagonal  = ((diagonals[data.maxDiagonalToContainBrokenCells + 1]) - 1);
+	BreakupCell *firstOnDiagonal = diagonals[effectiveDiag];
+	BreakupCell *lastOnDiagonal  = ((diagonals[effectiveDiag + 1]) - 1);
 	std::array<BreakupCell *, 2> diagonalCells{{firstOnDiagonal, lastOnDiagonal}};
 	for (BreakupCell *cell : diagonalCells) {
 		if (cell->cell_x != lastCell.cell_x && cell->cell_y != lastCell.cell_y) {
@@ -1088,12 +1091,49 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 
 		ons.oncePerBreakupEffectBreakupSetup(id, breakupDirectionFlagset, data.numCellsX, data.numCellsY);
 		ons.effectBreakupNew(id, breakupFactor);
-		drawUnbrokenBreakupRegions(id, dstX, dstY);
+
+		int fadeBand = ons.butterflyParams.frontierFadeBand;
+		drawUnbrokenBreakupRegions(id, dstX, dstY, fadeBand);
 
 		// Flush unbroken regions; do NOT draw circles — butterflies replace them.
 		blitter.finish();
 		if (!largeImage)
 			unsetShaderProgram();
+
+		// Draw fade band: individual cells between the shrunk triangle edge
+		// and the butterfly zone, with alpha decreasing toward the frontier.
+		if (fadeBand > 0) {
+			float cf = static_cast<float>(data.cellFactor);
+			int maxDiagIndex = data.numCellsX + data.numCellsY - 2;
+			int fadeDiagStart = data.maxDiagonalToContainBrokenCells + 1; // first intact diagonal after frontier
+			int fadeDiagEnd   = std::min(data.maxDiagonalToContainBrokenCells + fadeBand, maxDiagIndex - 1);
+
+			BreakupCell **diagonals = data.diagonals.data();
+			bool hasCellContent = !data.cellHasContent.empty();
+
+			for (int d = fadeDiagStart; d <= fadeDiagEnd; ++d) {
+				// Alpha: 0 at fadeDiagStart (touching butterflies), 1 at fadeDiagEnd (touching triangle)
+				float t = static_cast<float>(d - fadeDiagStart) / static_cast<float>(fadeBand);
+				uint8_t alpha = static_cast<uint8_t>(255.0f * t);
+				if (alpha < 2) continue;
+
+				BreakupCell *diagBegin = diagonals[d];
+				BreakupCell *diagEnd   = (d + 1 <= maxDiagIndex) ? diagonals[d + 1] : (data.breakup_cells.data() + data.numCellsX * data.numCellsY);
+
+				for (BreakupCell *cell = diagBegin; cell < diagEnd; ++cell) {
+					if (hasCellContent && !data.cellHasContent[cell->cell_y * data.numCellsX + cell->cell_x])
+						continue;
+
+					GPU_Rect srcRect{cell->cell_x * cf, cell->cell_y * cf, cf, cf};
+					float destX = cell->cell_x * cf + dstX;
+					float destY = cell->cell_y * cf + dstY;
+
+					GPU_SetRGBA(src, 255, 255, 255, alpha);
+					GPU_Blit(src, &srcRect, target, destX + cf * 0.5f, destY + cf * 0.5f);
+				}
+			}
+			GPU_SetRGBA(src, 255, 255, 255, 255);
+		}
 
 		// Render animated butterfly sprites in place of circles.
 		// Each butterfly is positioned exactly where its circle would be,
