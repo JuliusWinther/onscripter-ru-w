@@ -1377,6 +1377,84 @@ void GPUController::butterflyBreakUpImage(BreakupID id, GPU_Image *src, GPU_Rect
 				bflyCellforms->blend_mode = origBflyBlend;
 				GPU_SetRGBA(bflyCellforms, 255, 255, 255, 255);
 			}
+
+			// ---- BRIDGE PARTICLES ----
+			// Fill the gap between frontier particles and flying butterflies
+			// by generating particles along each cell's displacement path.
+			// Cells that have moved past the frontier zone (resizeFactor < frontierLo)
+			// get intermediate particles from the frontier position to their
+			// current displaced position, creating a continuous stream.
+			if (bflyCellforms) {
+				bflyCellforms->blend_mode = addBlend;
+
+				const float brgFrontierLo = ons.butterflyParams.frontierLo;
+				const float brgMinRF      = 0.05f; // ignore nearly-invisible cells
+				const float dispFollow    = ons.butterflyParams.frontierDispFollow;
+				const float scatter       = ons.butterflyParams.frontierScatter * 0.7f;
+				const int   bridgeParts   = std::max(1, ons.butterflyParams.frontierParticles / 2);
+				const int   bridgeSteps   = 5;
+
+				for (int n = 0; n < data.numCellsX * data.numCellsY; ++n) {
+					auto &cell = myCells[n];
+					if (cell.diagonal > data.maxDiagonalToContainBrokenCells)
+						break;
+					if (hasCellContent && !data.cellHasContent[cell.cell_y * data.numCellsX + cell.cell_x])
+						continue;
+					// Only cells that have moved past the frontier
+					if (cell.resizeFactor >= brgFrontierLo || cell.resizeFactor <= brgMinRF)
+						continue;
+
+					float originX = cell.cell_x * cf + dstX;
+					float originY = cell.cell_y * cf + dstY;
+
+					// Start of bridge: where frontier particles sit
+					float startX = originX + cell.disp_x * dispFollow;
+					float startY = originY + cell.disp_y * dispFollow;
+
+					// End of bridge: where the actual butterfly is
+					float endX = originX + cell.disp_x;
+					float endY = originY + cell.disp_y;
+
+					// Proximity to frontier: 1 near frontierLo, 0 near brgMinRF
+					float proximity = (cell.resizeFactor - brgMinRF) / (brgFrontierLo - brgMinRF);
+
+					for (int s = 0; s < bridgeSteps; ++s) {
+						float t = static_cast<float>(s) / static_cast<float>(bridgeSteps);
+						float px_base = startX + (endX - startX) * t;
+						float py_base = startY + (endY - startY) * t;
+
+						// Intensity: strong near frontier (t=0), fading toward butterfly (t=1)
+						float stepIntensity = (1.0f - t * 0.7f) * proximity;
+
+						for (int p = 0; p < bridgeParts; ++p) {
+							float seed1 = std::sin(n * 7.13f + s * 5.17f + p * 3.71f + ticks * 0.004f);
+							float seed2 = std::cos(n * 5.37f + s * 4.31f + p * 2.93f + ticks * 0.005f);
+							float seed3 = std::sin(n * 11.1f + s * 6.23f + p * 4.17f + ticks * 0.009f);
+
+							float px = px_base + seed1 * cf * scatter;
+							float py = py_base + seed2 * cf * scatter;
+
+							float sparkle = 0.5f + 0.5f * (0.5f + 0.5f * seed3);
+							float intensity = sparkle * stepIntensity * 0.6f;
+
+							uint8_t pVal = static_cast<uint8_t>(std::min(255.0f, 255.0f * intensity));
+							if (pVal < 5) continue;
+							GPU_SetRGBA(bflyCellforms, pVal, pVal, pVal, pVal);
+
+							int pFrame = static_cast<int>((ticks / 50 + n + s + p) % 4);
+							GPU_Rect particleRect{static_cast<float>(pFrame) * fw, 0, fw, fh};
+							float pAngle = ticks * 0.05f + n * 37.0f + s * 53.0f + p * 72.0f;
+							float pScale = ons.butterflyParams.particleScaleMin * 0.7f +
+							               p * ons.butterflyParams.particleScaleStep;
+							copyGPUImage(bflyCellforms, &particleRect, nullptr, target,
+							             px, py, pScale, pScale, pAngle, true);
+						}
+					}
+				}
+
+				bflyCellforms->blend_mode = origBflyBlend;
+				GPU_SetRGBA(bflyCellforms, 255, 255, 255, 255);
+			}
 		}
 	} else {
 		// Old implementation fallback: use regular breakup
